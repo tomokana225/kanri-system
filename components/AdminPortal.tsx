@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import CreateUserModal from './CreateUserModal';
 
-interface AdminPortalProps {
-  user: User;
-}
-
-const AdminPortal: React.FC<AdminPortalProps> = ({ user }) => {
+const AdminPortal: React.FC = () => {
   const [isCreateUserModalOpen, setCreateUserModalOpen] = useState(false);
 
   // Mock data for users

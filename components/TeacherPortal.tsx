@@ -1,11 +1,6 @@
 import React from 'react';
-import { User } from '../types';
 
-interface TeacherPortalProps {
-  user: User;
-}
-
-const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
+const TeacherPortal: React.FC = () => {
     // Mock data
     const courses = [
         { id: 'c1', title: 'Introduction to AI', studentCount: 25 },

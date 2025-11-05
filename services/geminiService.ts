@@ -20,8 +20,8 @@ export async function generateStudentProgressSummary(student: User, courseTitle:
             contents: prompt,
         });
 
-        // Use response.text to directly access the generated text
-        return response.text;
+        // Use response.text to directly access the generated text, with a fallback
+        return response.text ?? "AI summary could not be generated at this time.";
     } catch (error) {
         console.error("Error generating summary with Gemini API:", error);
         return "Could not generate a summary at this time. Please try again later.";

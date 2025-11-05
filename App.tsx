@@ -59,8 +59,8 @@ const App: React.FC = () => {
           <Header user={user} onLogout={handleLogout} />
           <main className="p-4 md:p-8">
             {user.role === 'student' && <StudentPortal user={user} />}
-            {user.role === 'teacher' && <TeacherPortal user={user} />}
-            {user.role === 'admin' && <AdminPortal user={user} />}
+            {user.role === 'teacher' && <TeacherPortal />}
+            {user.role === 'admin' && <AdminPortal />}
           </main>
         </>
       ) : (
