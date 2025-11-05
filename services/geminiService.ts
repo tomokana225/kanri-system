@@ -42,7 +42,8 @@ export const geminiService = {
             contents: prompt,
         });
       
-        return response.text.trim();
+        // FIX: Per coding guidelines, access the text property directly.
+        return response.text;
     } catch (error) {
         console.error("Error generating message draft with Gemini API:", error);
         return "申し訳ありませんが、メッセージの生成中にエラーが発生しました。";

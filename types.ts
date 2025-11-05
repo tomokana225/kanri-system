@@ -68,4 +68,6 @@ export interface Message {
     nanoseconds: number;
   }; // Firestore Timestamp
   isRead: boolean;
+  // FIX: Added conversationId to match the data being stored and queried in Firestore.
+  conversationId?: string;
 }
