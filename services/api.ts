@@ -1,9 +1,9 @@
+
 import { auth, db } from './firebase';
 import { 
   signInWithEmailAndPassword, 
   signOut,
   User as FirebaseUser,
-  createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { 
   collection, 
@@ -55,26 +55,21 @@ export const api = {
     return querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
   },
 
-  // FIX: The createUser function was a placeholder. It is now implemented to create a user in Firebase Auth
-  // and a corresponding profile in Firestore. This resolves the type error in CreateUserModal.tsx
-  // by accepting the 'password' field and makes the feature work as intended.
-  async createUser(userData: { name: string, email: string, password: string, role: UserRole }): Promise<User> {
-      // NOTE: For a real-world scenario, a Cloud Function using the Admin SDK is the recommended approach for an admin
-      // to create users. This client-side implementation is a simplification and will sign-in the newly created user,
-      // which is not ideal for an admin panel.
-      const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-      const uid = userCredential.user.uid;
-
-      const profileData = {
-          name: userData.name,
-          email: userData.email,
-          role: userData.role,
-      };
+  // This function now ONLY creates the Firestore user profile.
+  // The actual Firebase Auth user must be created manually in the Firebase Console by the admin
+  // for security reasons. This prevents exposing user creation credentials on the client-side.
+  async createUser(userData: { name: string, email: string, role: UserRole, uid: string }): Promise<User> {
+      const { uid, ...profileData } = userData;
       
       const userDocRef = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+          throw new Error("A user profile with this UID already exists in Firestore.");
+      }
+
       await setDoc(userDocRef, profileData);
       
-      // The admin is now logged in as the new user. They will need to log out and back in.
       return { uid, ...profileData };
   },
 
@@ -249,40 +244,90 @@ export const api = {
   // =================================
   // Messaging
   // =================================
-  async getRecentConversations(userId: string): Promise<{ user: User; lastMessage: Message }[]> {
+  async sendMessage(messageData: Omit<Message, 'id' | 'createdAt' | 'isRead'>): Promise<Message> {
     const messagesCollectionRef = collection(db, 'messages');
     
-    const sentQuery = query(
-        messagesCollectionRef, 
-        where('senderId', '==', userId)
-    );
-    const receivedQuery = query(
-        messagesCollectionRef,
-        where('recipientId', '==', userId)
-    );
+    // Create a consistent conversation ID and participant array for querying
+    const conversationId = [messageData.senderId, messageData.recipientId].sort().join('_');
+    const participantIds = [messageData.senderId, messageData.recipientId];
     
-    const [sentSnapshot, receivedSnapshot] = await Promise.all([
-        getDocs(sentQuery),
-        getDocs(receivedQuery)
-    ]);
+    const newMessagedata = {
+        ...messageData,
+        isRead: false,
+        createdAt: Timestamp.now(),
+        conversationId: conversationId,
+        participantIds: participantIds
+    };
+    
+    const docRef = await addDoc(messagesCollectionRef, newMessagedata);
+    const savedData = (await getDoc(docRef)).data();
 
-    const allMessages = [
-        ...sentSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Message)),
-        ...receivedSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Message)),
-    ];
+    // Send a notification to the recipient
+    await this.sendNotification({
+        userId: messageData.recipientId,
+        title: `新着メッセージがあります`,
+        message: `<strong>${messageData.senderName}</strong>さんから新しいメッセージが届きました。`
+    });
+
+    return { id: docRef.id, ...savedData } as unknown as Message;
+  },
+
+  getMessages(currentUserId: string, otherUserId: string, callback: (messages: Message[]) => void): () => void {
+    const conversationId = [currentUserId, otherUserId].sort().join('_');
+    const messagesCollectionRef = collection(db, 'messages');
     
-    allMessages.sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
+    const q = query(
+      messagesCollectionRef,
+      where('conversationId', '==', conversationId),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      callback(messages);
+
+      // Mark messages as read for the current user
+      const batch = writeBatch(db);
+      let markedAny = false;
+      snapshot.docs.forEach(doc => {
+          const msg = doc.data() as Message;
+          if (msg.recipientId === currentUserId && !msg.isRead) {
+              batch.update(doc.ref, { isRead: true });
+              markedAny = true;
+          }
+      });
+      if (markedAny) {
+          batch.commit().catch(e => console.error("Failed to mark messages as read", e));
+      }
+    });
+
+    return unsubscribe;
+  },
+
+  async getRecentConversations(userId: string): Promise<{ user: User; lastMessage: Message }[]> {
+    const messagesCollectionRef = collection(db, 'messages');
+    const q = query(
+      messagesCollectionRef,
+      where('participantIds', 'array-contains', userId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+        return [];
+    }
+    
+    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
 
     const conversationsMap = new Map<string, Message>();
-    
-    for (const msg of allMessages) {
-        const otherUserId = msg.senderId === userId ? msg.recipientId : msg.senderId;
-        if (!conversationsMap.has(otherUserId)) {
-            conversationsMap.set(otherUserId, msg);
+    messages.forEach(msg => {
+        const otherParticipantId = msg.senderId === userId ? msg.recipientId : msg.senderId;
+        if (!conversationsMap.has(otherParticipantId)) {
+            conversationsMap.set(otherParticipantId, msg);
         }
-    }
+    });
 
-    const conversationDataPromises = Array.from(conversationsMap.entries()).map(async ([otherUserId, lastMessage]) => {
+    const conversationPromises = Array.from(conversationsMap.entries()).map(async ([otherUserId, lastMessage]) => {
         const userProfile = await this.getUserProfile(otherUserId);
         if (userProfile) {
             return { user: userProfile, lastMessage };
@@ -290,42 +335,9 @@ export const api = {
         return null;
     });
 
-    const conversationData = (await Promise.all(conversationDataPromises)).filter(Boolean) as { user: User; lastMessage: Message }[];
-
-    conversationData.sort((a, b) => b.lastMessage.createdAt.seconds - a.lastMessage.createdAt.seconds);
-    
-    return conversationData;
-  },
-
-  getMessages(userId1: string, userId2: string, callback: (messages: Message[]) => void): () => void {
-    const conversationId = [userId1, userId2].sort().join('_');
-    const q = query(
-        collection(db, 'messages'),
-        where('conversationId', '==', conversationId),
-        orderBy('createdAt', 'asc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-        callback(messages);
-    });
-    
-    return unsubscribe;
-  },
-  
-  async sendMessage(messageData: Omit<Message, 'id' | 'createdAt' | 'isRead'>): Promise<Message> {
-    const messagesCollectionRef = collection(db, 'messages');
-    const conversationId = [messageData.senderId, messageData.recipientId].sort().join('_');
-    
-    const newMessageData = {
-        ...messageData,
-        isRead: false,
-        createdAt: Timestamp.now(),
-        conversationId,
-    };
-    
-    const docRef = await addDoc(messagesCollectionRef, newMessageData);
-    const savedData = (await getDoc(docRef)).data();
-    return { id: docRef.id, ...savedData } as unknown as Message;
-  },
+    const results = await Promise.all(conversationPromises);
+    return results
+        .filter(c => c !== null)
+        .sort((a,b) => b!.lastMessage.createdAt.seconds - a!.lastMessage.createdAt.seconds) as { user: User; lastMessage: Message }[];
+  }
 };

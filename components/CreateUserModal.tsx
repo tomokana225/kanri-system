@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { UserRole } from '../types';
@@ -12,29 +13,27 @@ interface CreateUserModalProps {
 const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onSuccess }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [uid, setUid] = useState('');
   const [role, setRole] = useState<UserRole>(UserRole.STUDENT);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!name || !email || !password) {
+    if (!name || !email || !uid) {
       setError('すべてのフィールドを入力してください。');
       return;
     }
     setError(null);
     setIsSubmitting(true);
     try {
-      await api.createUser({ name, email, password, role });
+      await api.createUser({ name, email, role, uid });
       onSuccess();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '不明なエラーが発生しました。';
-      if (errorMessage.includes('auth/email-already-in-use')) {
-        setError('このメールアドレスは既に使用されています。');
-      } else if (errorMessage.includes('auth/weak-password')) {
-        setError('パスワードは6文字以上で設定してください。');
+      if (errorMessage.includes("already exists")) {
+        setError("このUIDを持つユーザープロファイルは既に存在します。");
       } else {
-        setError('ユーザーの作成に失敗しました。');
+        setError(`ユーザープロファイルの作成に失敗しました: ${errorMessage}`);
       }
     } finally {
       setIsSubmitting(false);
@@ -43,7 +42,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onSuccess })
 
   return (
     <Modal
-      title="新規ユーザー作成"
+      title="新規ユーザープロファイル作成"
       onClose={onClose}
       onConfirm={handleSubmit}
       confirmText={isSubmitting ? '作成中...' : '作成'}
@@ -51,6 +50,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onSuccess })
     >
       {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
       <div className="space-y-4">
+        <div className="p-3 text-sm rounded-md bg-yellow-50 text-yellow-800 border border-yellow-200">
+          <strong>注意:</strong> 先にFirebase Authenticationでユーザーを作成し、発行されたUIDをここに入力してください。
+        </div>
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">氏名</label>
           <input
@@ -74,13 +76,14 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onSuccess })
           />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">初期パスワード</label>
+          <label htmlFor="uid" className="block text-sm font-medium text-gray-700">Firebase Auth UID</label>
           <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            type="text"
+            id="uid"
+            value={uid}
+            onChange={(e) => setUid(e.target.value)}
             className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+            placeholder="Firebase AuthからUIDをコピー"
             required
           />
         </div>
