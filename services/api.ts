@@ -1,8 +1,11 @@
 import { auth, db } from './firebase';
+// FIX: Imported getAuth to resolve "Cannot find name 'getAuth'" error.
 import { 
   signInWithEmailAndPassword, 
   signOut,
   User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  getAuth,
 } from 'firebase/auth';
 import { 
   collection, 
@@ -17,8 +20,38 @@ import {
   orderBy,
   limit,
   Timestamp,
+  setDoc,
 } from 'firebase/firestore';
 import { User, UserRole, Booking, BookingStatus, ScheduleSlot, Notification, Message } from '../types';
+import { initializeApp, deleteApp } from 'firebase/app';
+
+// This function needs to be self-contained as it will create a temporary app instance.
+const createUserOnBehalfOfAdmin = async (email: string, password: string): Promise<FirebaseUser> => {
+    // Re-create the config here to initialize a temporary, secondary app.
+    // This allows creating a user without signing out the current admin.
+    const tempAppConfig = {
+      apiKey: process.env.FIREBASE_API_KEY,
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.FIREBASE_APP_ID,
+      measurementId: process.env.FIREBASE_MEASUREMENT_ID
+    };
+    
+    const tempAppName = `createUser-${Date.now()}`;
+    const tempApp = initializeApp(tempAppConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+        return userCredential.user;
+    } finally {
+        // Clean up the temporary app instance
+        await deleteApp(tempApp);
+    }
+};
+
 
 export const api = {
   // =================================
@@ -51,6 +84,22 @@ export const api = {
     const q = query(usersCollectionRef, orderBy('name'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+  },
+
+  async createUser(userData: Omit<User, 'uid'> & {password: string}): Promise<User> {
+      // Step 1: Create the user in Firebase Authentication
+      const newFirebaseUser = await createUserOnBehalfOfAdmin(userData.email, userData.password);
+      
+      // Step 2: Create the user profile in Firestore
+      const userDocRef = doc(db, 'users', newFirebaseUser.uid);
+      const profileData = {
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+      };
+      await setDoc(userDocRef, profileData);
+      
+      return { uid: newFirebaseUser.uid, ...profileData };
   },
 
   async getUsersByRole(role: UserRole): Promise<User[]> {

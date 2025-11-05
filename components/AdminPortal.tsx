@@ -1,10 +1,12 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Booking, UserRole } from '../types';
 import { api } from '../services/api';
 import Spinner from './Spinner';
 import Alert from './Alert';
-import { UsersIcon, CalendarIcon, ClockIcon } from './icons';
+import CreateUserModal from './CreateUserModal';
+import { UsersIcon, CalendarIcon, ClockIcon, UserAddIcon } from './icons';
 
 const AdminPortal: React.FC = () => {
   const [activeTab, setActiveTab] = useState('users');
@@ -13,6 +15,7 @@ const AdminPortal: React.FC = () => {
   const [teachers, setTeachers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
 
   // Schedule creation form state
   const [scheduleTeacherId, setScheduleTeacherId] = useState('');
@@ -31,7 +34,7 @@ const AdminPortal: React.FC = () => {
       setBookings(allBookings);
       const teacherUsers = allUsers.filter(u => u.role === UserRole.TEACHER);
       setTeachers(teacherUsers);
-      if (teacherUsers.length > 0) {
+      if (teacherUsers.length > 0 && !scheduleTeacherId) {
         setScheduleTeacherId(teacherUsers[0].uid);
       }
     } catch (error) {
@@ -39,11 +42,17 @@ const AdminPortal: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [scheduleTeacherId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  const handleUserCreated = () => {
+      setIsCreateUserModalOpen(false);
+      setAlert({ type: 'success', message: 'ユーザーが正常に作成されました。' });
+      fetchData(); // Refresh the user list
+  };
 
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,28 +98,39 @@ const AdminPortal: React.FC = () => {
     switch (activeTab) {
       case 'users':
         return (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名前</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">役割</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map(user => (
-                  <tr key={user.uid}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs">{user.uid}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
+          <>
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setIsCreateUserModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-brand-primary hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-dark"
+              >
+                <UserAddIcon className="w-5 h-5" />
+                新規ユーザー作成
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名前</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">役割</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map(user => (
+                    <tr key={user.uid}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs">{user.uid}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         );
       case 'bookings':
         return (
@@ -175,6 +195,7 @@ const AdminPortal: React.FC = () => {
   return (
     <div className="space-y-6">
        {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
+       {isCreateUserModalOpen && <CreateUserModal onClose={() => setIsCreateUserModalOpen(false)} onSuccess={handleUserCreated} />}
       <h2 className="text-3xl font-bold text-gray-800">管理者ダッシュボード</h2>
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
