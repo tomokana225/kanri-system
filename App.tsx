@@ -7,6 +7,7 @@ import StudentPortal from './components/StudentPortal';
 import TeacherPortal from './components/TeacherPortal';
 import AdminPortal from './components/AdminPortal';
 import Spinner from './components/Spinner';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Mock function to get user role, in a real app this would come from Firestore
 const getUserRole = (email: string | null): UserRole => {
@@ -21,7 +22,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(firebaseUser => {
+    const unsubscribe = onAuthStateChanged(auth, firebaseUser => {
       if (firebaseUser) {
         const currentUser: User = {
           id: firebaseUser.uid,
@@ -40,7 +41,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    await auth.signOut();
+    await signOut(auth);
   };
 
   if (loading) {
