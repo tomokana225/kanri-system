@@ -1,11 +1,12 @@
-// FIX: Changed to a namespace import to resolve potential module resolution issues
-// that could cause the "no exported member 'initializeApp'" error.
-import * as firebaseApp from 'firebase/app';
+// FIX: Removed `/// <reference types="vite/client" />` as it was causing a TypeScript error and is not needed because the application uses `process.env` for environment variables.
+import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Your web app's Firebase configuration
-// These environment variables should be set in your Cloudflare Pages project settings
+// These environment variables are now read from `process.env`.
+// The build system (like Vite on Cloudflare) will replace these with your secrets.
+// You no longer need the `VITE_` prefix in your Cloudflare settings.
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -16,9 +17,13 @@ const firebaseConfig = {
   measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase API Key is missing. Make sure FIREBASE_API_KEY is set in your environment variables.");
+}
+
+
 // Initialize Firebase
-// FIX: Use the imported namespace to call initializeApp.
-const app = firebaseApp.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Get Firebase services
 const auth = getAuth(app);

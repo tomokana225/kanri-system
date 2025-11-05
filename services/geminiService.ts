@@ -1,9 +1,8 @@
 
-
 import { GoogleGenAI } from "@google/genai";
 
-// Per coding guidelines, initialize with the API key from environment variables directly.
-// The SDK will handle errors if the key is missing.
+// Per coding guidelines, the API key must be sourced from `process.env.API_KEY`.
+// The build system will replace this with the secret value at build time.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const geminiService = {
@@ -15,7 +14,6 @@ export const geminiService = {
    * @returns The generated message as a string.
    */
   async generateMessageDraft(recipientName: string, senderName: string, intent: string): Promise<string> {
-    // No need to check for API key here; the try/catch will handle initialization or request errors.
     const prompt = `あなたは、生徒と先生が使う授業予約システムのAIアシスタントです。以下の情報に基づいて、丁寧で自然な日本語のメッセージを作成してください。
 
     宛先: ${recipientName}様
@@ -25,6 +23,9 @@ export const geminiService = {
     メッセージ本文のみを生成してください。件名や署名は不要です。`;
 
     try {
+        if (!process.env.API_KEY) {
+           throw new Error("API key is not configured.");
+        }
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
@@ -33,9 +34,8 @@ export const geminiService = {
         return response.text.trim();
     } catch (error) {
         console.error("Error generating message draft with Gemini API:", error);
-        // Provide a generic error message. The console will have details for developers.
-        if (error instanceof Error && (error.message.includes('API key') || error.message.includes('permission'))) {
-          return "AIアシスタントは現在利用できません。APIキーが設定されていないか、無効です。";
+        if (error instanceof Error && (error.message.includes('API key') || error.message.includes('configured'))) {
+          return `AIアシスタントは現在利用できません。環境変数 'API_KEY' が設定されていないか、無効です。`;
         }
         return "申し訳ありませんが、メッセージの生成中にエラーが発生しました。";
     }
