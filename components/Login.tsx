@@ -3,8 +3,8 @@ import { api } from '../services/api';
 import { LoginIcon } from './icons';
 
 const LoginComponent: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@admin.com');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,7 +20,7 @@ const LoginComponent: React.FC = () => {
       await api.login(email, password);
       // onAuthStateChanged in App.tsx will handle the redirect
     } catch (err: any) {
-        if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+        if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
             setError('メールアドレスまたはパスワードが正しくありません。');
         } else {
             setError('ログイン中にエラーが発生しました。後でもう一度お試しください。');
