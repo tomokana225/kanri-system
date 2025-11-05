@@ -1,0 +1,5 @@
+{
+  "name": "Class Reservation System",
+  "description": "A comprehensive booking system for students to reserve classes, teachers to view schedules, and administrators to manage the platform. The system features role-based access, a dynamic calendar for booking, and simulated email notifications.",
+  "requestFramePermissions": []
+}
