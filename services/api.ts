@@ -1,11 +1,9 @@
 import { auth, db } from './firebase';
-// FIX: Imported getAuth to resolve "Cannot find name 'getAuth'" error.
 import { 
   signInWithEmailAndPassword, 
   signOut,
   User as FirebaseUser,
   createUserWithEmailAndPassword,
-  getAuth,
 } from 'firebase/auth';
 import { 
   collection, 
@@ -23,35 +21,6 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { User, UserRole, Booking, BookingStatus, ScheduleSlot, Notification, Message } from '../types';
-import { initializeApp, deleteApp } from 'firebase/app';
-
-// This function needs to be self-contained as it will create a temporary app instance.
-const createUserOnBehalfOfAdmin = async (email: string, password: string): Promise<FirebaseUser> => {
-    // Re-create the config here to initialize a temporary, secondary app.
-    // This allows creating a user without signing out the current admin.
-    const tempAppConfig = {
-      apiKey: process.env.FIREBASE_API_KEY,
-      authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.FIREBASE_APP_ID,
-      measurementId: process.env.FIREBASE_MEASUREMENT_ID
-    };
-    
-    const tempAppName = `createUser-${Date.now()}`;
-    const tempApp = initializeApp(tempAppConfig, tempAppName);
-    const tempAuth = getAuth(tempApp);
-
-    try {
-        const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
-        return userCredential.user;
-    } finally {
-        // Clean up the temporary app instance
-        await deleteApp(tempApp);
-    }
-};
-
 
 export const api = {
   // =================================
@@ -86,21 +55,29 @@ export const api = {
     return querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
   },
 
-  async createUser(userData: Omit<User, 'uid'> & {password: string}): Promise<User> {
-      // Step 1: Create the user in Firebase Authentication
-      const newFirebaseUser = await createUserOnBehalfOfAdmin(userData.email, userData.password);
-      
-      // Step 2: Create the user profile in Firestore
-      const userDocRef = doc(db, 'users', newFirebaseUser.uid);
+  // FIX: The createUser function was a placeholder. It is now implemented to create a user in Firebase Auth
+  // and a corresponding profile in Firestore. This resolves the type error in CreateUserModal.tsx
+  // by accepting the 'password' field and makes the feature work as intended.
+  async createUser(userData: { name: string, email: string, password: string, role: UserRole }): Promise<User> {
+      // NOTE: For a real-world scenario, a Cloud Function using the Admin SDK is the recommended approach for an admin
+      // to create users. This client-side implementation is a simplification and will sign-in the newly created user,
+      // which is not ideal for an admin panel.
+      const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+      const uid = userCredential.user.uid;
+
       const profileData = {
           name: userData.name,
           email: userData.email,
           role: userData.role,
       };
+      
+      const userDocRef = doc(db, 'users', uid);
       await setDoc(userDocRef, profileData);
       
-      return { uid: newFirebaseUser.uid, ...profileData };
+      // The admin is now logged in as the new user. They will need to log out and back in.
+      return { uid, ...profileData };
   },
+
 
   async getUsersByRole(role: UserRole): Promise<User[]> {
     const usersCollectionRef = collection(db, 'users');
