@@ -1,106 +1,89 @@
-
 import React, { useState } from 'react';
-import { api } from '../services/api';
-import { UserRole } from '../types';
+import { User, UserRole } from '../types';
 import Modal from './Modal';
-import Alert from './Alert';
 
 interface CreateUserModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onCreate: (newUser: Partial<User>) => void;
 }
 
-const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onSuccess }) => {
+const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onCreate }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [uid, setUid] = useState('');
-  const [role, setRole] = useState<UserRole>(UserRole.STUDENT);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('student');
 
-  const handleSubmit = async () => {
-    if (!name || !email || !uid) {
-      setError('すべてのフィールドを入力してください。');
-      return;
-    }
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await api.createUser({ name, email, role, uid });
-      onSuccess();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '不明なエラーが発生しました。';
-      if (errorMessage.includes("already exists")) {
-        setError("このUIDを持つユーザープロファイルは既に存在します。");
-      } else {
-        setError(`ユーザープロファイルの作成に失敗しました: ${errorMessage}`);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, password would be handled by auth, not passed around.
+    onCreate({ name, email, role });
   };
 
   return (
-    <Modal
-      title="新規ユーザープロファイル作成"
-      onClose={onClose}
-      onConfirm={handleSubmit}
-      confirmText={isSubmitting ? '作成中...' : '作成'}
-      isConfirmDisabled={isSubmitting}
-    >
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-      <div className="space-y-4">
-        <div className="p-3 text-sm rounded-md bg-yellow-50 text-yellow-800 border border-yellow-200">
-          <strong>注意:</strong> 先にFirebase Authenticationでユーザーを作成し、発行されたUIDをここに入力してください。
-        </div>
+    <Modal title="Create New User" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">氏名</label>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700">Full Name</label>
           <input
             type="text"
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
             required
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">メールアドレス</label>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
           <input
             type="email"
             id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
             required
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div>
-          <label htmlFor="uid" className="block text-sm font-medium text-gray-700">Firebase Auth UID</label>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
           <input
-            type="text"
-            id="uid"
-            value={uid}
-            onChange={(e) => setUid(e.target.value)}
-            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-            placeholder="Firebase AuthからUIDをコピー"
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div>
-          <label htmlFor="role" className="block text-sm font-medium text-gray-700">役割</label>
+          <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
           <select
             id="role"
             value={role}
             onChange={(e) => setRole(e.target.value as UserRole)}
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-md"
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
           >
-            <option value={UserRole.STUDENT}>生徒</option>
-            <option value={UserRole.TEACHER}>先生</option>
-            <option value={UserRole.ADMIN}>管理者</option>
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
           </select>
         </div>
-      </div>
+        <div className="flex justify-end space-x-2 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+          >
+            Create User
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 };
