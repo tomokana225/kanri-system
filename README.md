@@ -1,4 +1,4 @@
-<![CDATA[# 授業予約システム - Firebase & React
+# 授業予約システム - Firebase & React
 
 このプロジェクトは、生徒、先生、管理者のための包括的な授業予約システムです。Firebaseをバックエンドとして使用し、リアルタイムのデータ同期と安全な認証を実現しています。
 
@@ -94,4 +94,4 @@ firebase deploy --only firestore:rules
 firebase deploy --only firestore:indexes
 ```
 
-これらのコマンドは、プロジェクト内にある`firestore.rules`と`firestore.indexes.json`ファイルをあなたのFirebaseプロジェクトに適用し、アプリケーションが正しくデータを読み書きできるようにします。]]>
+これらのコマンドは、プロジェクト内にある`firestore.rules`と`firestore.indexes.json`ファイルをあなたのFirebaseプロジェクトに適用し、アプリケーションが正しくデータを読み書きできるようにします。
