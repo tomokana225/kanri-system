@@ -34,11 +34,7 @@
 1.  Firestoreの「ルール」タブに移動します。
 2.  提供されている`firestore.rules`ファイルの内容を貼り付けて、ルールを公開します。これにより、アプリケーションのデータが保護されます。
 
-### 5. Gemini APIキーの準備 (任意)
-
-メッセージの下書き生成機能を使用する場合、[Google AI Studio](https://aistudio.google.com/app/apikey)でAPIキーを取得してください。
-
-### 6. Cloudflare Pages へのデプロイ
+### 5. Cloudflare Pages へのデプロイ
 
 1.  このプロジェクトをあなた自身のGitHubリポジトリにフォークまたはプッシュします。
 2.  [Cloudflare ダッシュボード](https://dash.cloudflare.com/)にログインし、「Workers & Pages」に移動します。
@@ -46,7 +42,7 @@
 4.  ビルド設定は、フレームワークプリセットで「Vite」を選択すれば自動的に設定されます。（ビルドコマンド: `npm run build`、出力ディレクトリ: `dist`）
 5.  **環境変数（シークレット）**を設定します。
     *   `設定` > `環境変数` > `本番環境` に移動します。
-    *   **手順1**で取得したFirebaseのConfig情報と、**手順5**で取得したGeminiキーを、以下の名前で追加します。**`VITE_`プレフィックスは不要です。**
+    *   **手順1**で取得したFirebaseのConfig情報を、以下の名前で追加します。**`VITE_`プレフィックスは不要です。**
     *   **必ず「暗号化」の鍵アイコンをクリックしてシークレットとして保存してください。**
         *   `FIREBASE_API_KEY`
         *   `FIREBASE_AUTH_DOMAIN`
@@ -55,5 +51,4 @@
         *   `FIREBASE_MESSAGING_SENDER_ID`
         *   `FIREBASE_APP_ID`
         *   `FIREBASE_MEASUREMENT_ID`
-        *   `API_KEY` (Gemini APIキー用)
 6.  「保存してデプロイする」をクリックします。デプロイが完了すると、アプリケーションがインターネット上で利用可能になります。

@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Message, UserRole } from '../types';
 import { api } from '../services/api';
-import { geminiService } from '../services/geminiService';
 import Spinner from './Spinner';
 import { PaperAirplaneIcon, UserCircleIcon } from './icons';
 
@@ -18,8 +17,6 @@ const MessagingView: React.FC<MessagingViewProps> = ({ user, recipientRole }) =>
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [isAiGenerating, setIsAiGenerating] = useState(false);
-  const [aiIntent, setAiIntent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -84,20 +81,6 @@ const MessagingView: React.FC<MessagingViewProps> = ({ user, recipientRole }) =>
     }
   };
 
-  const handleAiGenerate = async () => {
-    if (!aiIntent.trim() || !selectedConversation) return;
-    setIsAiGenerating(true);
-    try {
-        const draft = await geminiService.generateMessageDraft(selectedConversation.name, user.name, aiIntent);
-        setNewMessage(draft);
-        setAiIntent('');
-    } catch (error) {
-        console.error("AI generation failed", error);
-    } finally {
-        setIsAiGenerating(false);
-    }
-  };
-
   return (
     <div className="flex h-[600px] bg-white rounded-xl shadow-md border border-gray-200">
       <div className="w-1/3 border-r border-gray-200 flex flex-col">
@@ -136,19 +119,6 @@ const MessagingView: React.FC<MessagingViewProps> = ({ user, recipientRole }) =>
               <div ref={messagesEndRef} />
             </div>
             <div className="p-4 border-t border-gray-200 bg-white">
-                <div className="flex items-center gap-2 mb-2">
-                    <input 
-                        type="text" 
-                        value={aiIntent}
-                        onChange={(e) => setAiIntent(e.target.value)}
-                        placeholder="AIに伝えたいことを入力 (例: 明日の予約をキャンセルしたい)"
-                        className="flex-1 block w-full px-3 py-1.5 text-sm border-gray-300 rounded-md shadow-sm focus:ring-brand-primary focus:border-brand-primary"
-                        disabled={isAiGenerating}
-                    />
-                    <button onClick={handleAiGenerate} disabled={isAiGenerating || !aiIntent} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-secondary rounded-md hover:bg-brand-dark disabled:bg-gray-400">
-                        {isAiGenerating ? <Spinner/> : '下書き生成'}
-                    </button>
-                </div>
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                 <textarea
                   value={newMessage}
