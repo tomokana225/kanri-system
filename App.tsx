@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { auth } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -14,16 +15,27 @@ import Spinner from './components/Spinner';
 const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [authError, setAuthError] = useState<string | null>(null);
 
     useEffect(() => {
+        setIsLoading(true);
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 try {
                     const userProfile = await api.getUserProfile(firebaseUser.uid);
-                    setUser(userProfile);
+                    if (userProfile) {
+                        setUser(userProfile);
+                        setAuthError(null); // Clear previous errors on successful load
+                    } else {
+                        // This handles the case where auth is valid but profile is missing
+                        setUser(null);
+                        setAuthError('認証に成功しましたが、ユーザープロファイルがデータベースに見つかりません。管理者にご連絡ください。');
+                        await api.logout(); // Log out from auth to prevent a stuck state
+                    }
                 } catch (error) {
                     console.error("Failed to fetch user profile:", error);
                     setUser(null);
+                    setAuthError('ユーザープロファイルの取得に失敗しました。');
                 }
             } else {
                 setUser(null);
@@ -33,6 +45,18 @@ const App: React.FC = () => {
 
         return () => unsubscribe();
     }, []);
+
+    const handleLogin = async (email: string, password: string) => {
+        setAuthError(null);
+        setIsLoading(true);
+        try {
+            await api.login(email, password);
+            // onAuthStateChanged will handle setting the user state and turning off loading
+        } catch (err) {
+            setAuthError('ログインに失敗しました。メールアドレスまたはパスワードを確認してください。');
+            setIsLoading(false); // Ensure loading stops on direct login failure
+        }
+    };
 
     const handleLogout = async () => {
         await api.logout();
@@ -54,7 +78,7 @@ const App: React.FC = () => {
         }
     };
 
-    if (isLoading) {
+    if (isLoading && !user && !authError) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-100">
                 <Spinner />
@@ -74,7 +98,7 @@ const App: React.FC = () => {
                     </main>
                 </>
             ) : (
-                <Login />
+                <Login onLogin={handleLogin} isLoading={isLoading} error={authError} />
             )}
         </div>
     );
