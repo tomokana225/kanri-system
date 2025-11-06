@@ -1,165 +1,181 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { 
-  getFirestore, 
-  Firestore, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  writeBatch,
-  Timestamp,
-  orderBy
+import {
+    getFirestore,
+    Firestore,
+    doc,
+    setDoc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    addDoc,
+    updateDoc,
+    deleteDoc,
 } from 'firebase/firestore';
-import { getConfig } from './config';
-import { User, Course, Notification, Booking } from '../types';
+import { AppConfig, getConfig } from './config';
+import { User, Course, Booking, Notification } from '../types';
 
-interface FirebaseServices {
-  auth: Auth;
-  db: Firestore;
-}
+let firebaseApp: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
 
-let firebaseInitializationPromise: Promise<FirebaseServices> | null = null;
+let firebaseInitializationPromise: Promise<{ auth: Auth; db: Firestore }> | null = null;
 
-export const initializeFirebase = (): Promise<FirebaseServices> => {
+export const initializeFirebase = (): Promise<{ auth: Auth; db: Firestore }> => {
     if (firebaseInitializationPromise) {
         return firebaseInitializationPromise;
     }
 
     firebaseInitializationPromise = (async () => {
         try {
-            const config = await getConfig();
-            if (!config.firebase) {
-                throw new Error("Firebaseの構成が設定ファイルに見つかりません。");
+            const config: AppConfig = await getConfig();
+            if (!firebaseApp) {
+                firebaseApp = initializeApp(config.firebase);
+                auth = getAuth(firebaseApp);
+                db = getFirestore(firebaseApp);
             }
-            const app = initializeApp(config.firebase);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
             return { auth, db };
-        } catch (e: any) {
-            console.error("Firebase initialization error:", e);
-            throw new Error(e.message || `Firebaseの初期化に失敗しました。`);
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            firebaseInitializationPromise = null;
+            throw error; // Rethrow to be caught by the caller
         }
     })();
 
     return firebaseInitializationPromise;
 };
 
+// --- User Management ---
 
-// ユーザープロファイル取得
-export const getUserProfile = async (uid: string): Promise<User | null> => {
-  const { db } = await initializeFirebase();
-  const userDocRef = doc(db, 'users', uid);
-  const userDocSnap = await getDoc(userDocRef);
-  if (userDocSnap.exists()) {
-    return userDocSnap.data() as User;
-  }
-  return null;
-};
-
-// 新規サインアップ時にユーザープロファイル作成
-export const createUserProfile = async (uid: string, data: Omit<User, 'id'>) => {
-  const { db } = await initializeFirebase();
-  const userDocRef = doc(db, 'users', uid);
-  await setDoc(userDocRef, { id: uid, ...data });
-};
-
-// 全ユーザー取得 (管理者用)
-export const getUsers = async (): Promise<User[]> => {
+export async function getUserProfile(uid: string): Promise<User | null> {
     const { db } = await initializeFirebase();
-    const usersCollection = collection(db, 'users');
-    const snapshot = await getDocs(usersCollection);
-    return snapshot.docs.map(doc => doc.data() as User);
-}
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
 
-// ユーザー追加 (管理者用)
-export const addUser = async (userData: Omit<User, 'id'>): Promise<void> => {
-    const { db } = await initializeFirebase();
-    const tempId = userData.email.replace(/[^a-zA-Z0-9]/g, '');
-    const userRef = doc(db, 'users', tempId);
-    if ((await getDoc(userRef)).exists()) {
-        throw new Error("このメールアドレスは既に使用されています。");
+    if (userSnap.exists()) {
+        return { id: userSnap.id, ...userSnap.data() } as User;
+    } else {
+        return null;
     }
-    await setDoc(userRef, { ...userData, id: tempId });
-};
-
-
-// 学生のコース取得
-export const getStudentCourses = async (studentId: string): Promise<Course[]> => {
-    const { db } = await initializeFirebase();
-    const q = query(collection(db, "courses"), where("studentIds", "array-contains", studentId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
 }
 
-// 教師のコース取得
-export const getTeacherCourses = async (teacherId: string): Promise<Course[]> => {
+export async function createUserProfile(uid: string, userData: Omit<User, 'id'>): Promise<void> {
     const { db } = await initializeFirebase();
-    const q = query(collection(db, "courses"), where("teacherId", "==", teacherId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
+    const userRef = doc(db, 'users', uid);
+    await setDoc(userRef, userData);
 }
 
-// 教師の予約取得
-export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> => {
+export async function getAllUsers(): Promise<User[]> {
     const { db } = await initializeFirebase();
-    const q = query(collection(db, "bookings"), where("teacherId", "==", teacherId), orderBy("startTime", "asc"));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+    const usersRef = collection(db, 'users');
+    const querySnapshot = await getDocs(usersRef);
+    const users: User[] = [];
+    querySnapshot.forEach((doc) => {
+        users.push({ id: doc.id, ...doc.data() } as User);
+    });
+    return users;
 }
 
-// ユーザーの通知取得
-export const getUserNotifications = async (userId: string): Promise<Notification[]> => {
+export async function updateUser(uid: string, userData: Partial<Omit<User, 'id'>>): Promise<void> {
     const { db } = await initializeFirebase();
-    const q = query(collection(db, "notifications"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, userData);
+}
+
+export async function deleteUser(uid: string): Promise<void> {
+    const { db } = await initializeFirebase();
+    // Note: This does not delete the user from Firebase Auth. That requires the Admin SDK.
+    await deleteDoc(doc(db, 'users', uid));
+}
+
+// --- Course Management ---
+
+export async function getStudentCourses(studentId: string): Promise<Course[]> {
+    const { db } = await initializeFirebase();
+    const coursesRef = collection(db, 'courses');
+    const q = query(coursesRef, where('studentIds', 'array-contains', studentId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+
+    const courses: Course[] = [];
+    querySnapshot.forEach((doc) => {
+        courses.push({ id: doc.id, ...doc.data() } as Course);
+    });
+
+    return courses;
+}
+
+export async function getTeacherCourses(teacherId: string): Promise<Course[]> {
+    const { db } = await initializeFirebase();
+    const coursesRef = collection(db, 'courses');
+    const q = query(coursesRef, where('teacherId', '==', teacherId));
+    const querySnapshot = await getDocs(q);
+
+    const courses: Course[] = [];
+    querySnapshot.forEach((doc) => {
+        courses.push({ id: doc.id, ...doc.data() } as Course);
+    });
+
+    return courses;
 }
 
 
-// デモデータ投入
-export const seedDatabase = async () => {
+export async function getAllCourses(): Promise<Course[]> {
     const { db } = await initializeFirebase();
-    const batch = writeBatch(db);
-
-    const users: User[] = [
-        { id: 'student-demo', name: 'デモ学生', email: 'student-demo@test.com', role: 'student' },
-        { id: 'teacher-demo', name: 'デモ先生', email: 'teacher-demo@test.com', role: 'teacher' },
-        { id: 'admin-demo', name: 'デモ管理者', email: 'admin-demo@test.com', role: 'admin' },
-    ];
-    users.forEach(user => {
-        const userRef = doc(db, "users", user.id);
-        batch.set(userRef, user);
+    const coursesRef = collection(db, 'courses');
+    const querySnapshot = await getDocs(coursesRef);
+    const courses: Course[] = [];
+    querySnapshot.forEach((doc) => {
+        courses.push({ id: doc.id, ...doc.data() } as Course);
     });
+    return courses;
+}
 
-    const courses: Omit<Course, 'id'>[] = [
-        { title: 'AI入門', description: 'AIの基礎を学ぶ', teacherId: 'teacher-demo', teacherName: 'デモ先生', studentIds: ['student-demo'] },
-        { title: '高度なReact', description: 'Reactの応用技術を学ぶ', teacherId: 'teacher-demo', teacherName: 'デモ先生', studentIds: ['student-demo'] },
-    ];
-    courses.forEach((course, index) => {
-        const courseRef = doc(db, "courses", `course-demo-${index + 1}`);
-        batch.set(courseRef, course);
-    });
-    
-    const bookings: Omit<Booking, 'id'>[] = [
-        { studentId: 'student-demo', studentName: 'デモ学生', teacherId: 'teacher-demo', startTime: Timestamp.fromDate(new Date(Date.now() + 24 * 3600 * 1000)), endTime: Timestamp.fromDate(new Date(Date.now() + 25 * 3600 * 1000)), status: 'confirmed', courseTitle: 'AI入門' }
-    ];
-    bookings.forEach((booking, index) => {
-        const bookingRef = doc(db, "bookings", `booking-demo-${index + 1}`);
-        batch.set(bookingRef, booking);
-    });
+export async function createCourse(courseData: Omit<Course, 'id'>): Promise<void> {
+    const { db } = await initializeFirebase();
+    const coursesRef = collection(db, 'courses');
+    await addDoc(coursesRef, courseData);
+}
 
-    const notifications: Omit<Notification, 'id'>[] = [
-        { userId: 'student-demo', message: '「AI入門」の課題提出期限は明日です。', read: false, createdAt: Timestamp.now() },
-        { userId: 'teacher-demo', message: 'デモ学生さんとの面談が明日予定されています。', read: false, createdAt: Timestamp.now() },
-    ];
-    notifications.forEach((notification, index) => {
-        const notifRef = doc(db, "notifications", `notif-demo-${index + 1}`);
-        batch.set(notifRef, notification);
-    });
+export async function updateCourse(courseId: string, courseData: Partial<Omit<Course, 'id'>>): Promise<void> {
+    const { db } = await initializeFirebase();
+    const courseRef = doc(db, 'courses', courseId);
+    await updateDoc(courseRef, courseData);
+}
 
-    await batch.commit();
+export async function deleteCourse(courseId: string): Promise<void> {
+    const { db } = await initializeFirebase();
+    await deleteDoc(doc(db, 'courses', courseId));
+}
+
+// --- Booking Management ---
+
+export async function getTeacherBookings(teacherId: string): Promise<Booking[]> {
+    const { db } = await initializeFirebase();
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(bookingsRef, where('teacherId', '==', teacherId), where('status', '==', 'confirmed'));
+    const querySnapshot = await getDocs(q);
+
+    const bookings: Booking[] = [];
+    querySnapshot.forEach((doc) => {
+        bookings.push({ id: doc.id, ...doc.data() } as Booking);
+    });
+    return bookings;
+}
+
+// --- Notification Management ---
+
+export async function getUserNotifications(userId: string): Promise<Notification[]> {
+    const { db } = await initializeFirebase();
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(notificationsRef, where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+
+    const notifications: Notification[] = [];
+    querySnapshot.forEach((doc) => {
+        notifications.push({ id: doc.id, ...doc.data() } as Notification);
+    });
+    // Sort by creation date, newest first
+    return notifications.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }

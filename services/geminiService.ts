@@ -2,7 +2,6 @@ import { GoogleGenAI } from "@google/genai";
 import { User } from "../types";
 import { getConfig } from "./config";
 
-let ai: GoogleGenAI | null = null;
 let geminiInitializationPromise: Promise<GoogleGenAI> | null = null;
 
 export const initializeGemini = (): Promise<GoogleGenAI> => {
@@ -16,10 +15,12 @@ export const initializeGemini = (): Promise<GoogleGenAI> => {
             if (!config.apiKey) {
                 throw new Error("Gemini APIキーが設定ファイルに見つかりません。");
             }
-            ai = new GoogleGenAI({ apiKey: config.apiKey });
+            const ai = new GoogleGenAI({ apiKey: config.apiKey });
             return ai;
         } catch (e: any) {
             console.error("Gemini AI initialization error:", e);
+            // FIX: Reset promise on failure to allow for retry.
+            geminiInitializationPromise = null;
             throw new Error(e.message || "Gemini AIの初期化に失敗しました。");
         }
     })();
@@ -42,7 +43,8 @@ export async function generateStudentProgressSummary(student: User, courseTitle:
             model: "gemini-2.5-flash",
             contents: prompt,
         });
-        return response.text ?? "現時点ではAIサマリーを生成できませんでした。";
+        // FIX: Per guidelines, access text directly. Provide a fallback for an empty string response.
+        return response.text || "現時点ではAIサマリーを生成できませんでした。";
     } catch (error) {
         console.error("Gemini APIでのサマリー生成エラー:", error);
         // Rethrow a more user-friendly error
