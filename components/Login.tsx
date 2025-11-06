@@ -31,13 +31,14 @@ const Login: React.FC = () => {
         await createUserProfile(firebaseUser.uid, newUserProfile);
       }
     } catch (err: any) {
+      const errorCode = err.code ? ` (コード: ${err.code})` : '';
       if (err.code === 'auth/email-already-in-use') {
-        setError('このメールアドレスは既に使用されています。');
+        setError(`このメールアドレスは既に使用されています。${errorCode}`);
       } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        setError('メールアドレスまたはパスワードが正しくありません。');
+        setError(`メールアドレスまたはパスワードが正しくありません。${errorCode}`);
       }
       else {
-        setError('エラーが発生しました。しばらくしてからもう一度お試しください。');
+        setError(`エラーが発生しました。しばらくしてからもう一度お試しください。${errorCode}`);
       }
       console.error(err);
     } finally {

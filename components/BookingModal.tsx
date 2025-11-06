@@ -34,8 +34,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
         setCourses(fetchedCourses);
         const teacherMap = new Map(fetchedUsers.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
         setTeachers(teacherMap);
-      } catch (e) {
-        setError('コースの読み込みに失敗しました。');
+      } catch (e: any) {
+        const code = e.code ? ` (コード: ${e.code})` : '';
+        setError(`コースの読み込みに失敗しました。${code}`);
       } finally {
         setLoading(false);
       }
@@ -87,8 +88,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
 
         await createBooking(newBooking);
         setStep(4);
-    } catch (e) {
-        setError('予約の作成に失敗しました。');
+    } catch (e: any) {
+        const code = e.code ? ` (コード: ${e.code})` : '';
+        setError(`予約の作成に失敗しました。${code}`);
         setLoading(false);
     }
   };

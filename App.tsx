@@ -45,10 +45,11 @@ const App: React.FC = () => {
                   role: newUser.role
                 });
                 setUser(newUser);
-              } catch (profileError) {
+              } catch (profileError: any) {
                 console.error("ユーザープロファイルの作成に失敗:", profileError);
+                const errorCode = profileError.code ? ` (コード: ${profileError.code})` : '';
                 setUser(null); 
-                setInitializationError("ユーザープロファイルの作成に失敗しました。");
+                setInitializationError(`ユーザープロファイルの作成に失敗しました。${errorCode}`);
               }
             }
           } else {
@@ -60,7 +61,8 @@ const App: React.FC = () => {
         return () => unsubscribe();
       } catch (error: any) {
         console.error("アプリケーションの初期化に失敗:", error);
-        setInitializationError(error.message || "予期せぬエラーが発生しました。");
+        const errorCode = error.code ? ` (コード: ${error.code})` : '';
+        setInitializationError((error.message || "予期せぬエラーが発生しました。") + errorCode);
         setLoading(false);
       }
     };

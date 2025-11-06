@@ -35,10 +35,11 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
       ]);
       setEnrolledCourses(courses);
       setBookings(studentBookings.filter(b => b.startTime.toDate() > new Date()));
-    } catch (e) {
+    } catch (e: any) {
       console.error('学生データの取得に失敗しました:', e);
-      setCoursesError('登録コースの取得に失敗しました。');
-      setBookingsError('予約の取得に失敗しました。');
+      const code = e.code ? ` (コード: ${e.code})` : '';
+      setCoursesError(`登録コースの取得に失敗しました。${code}`);
+      setBookingsError(`予約の取得に失敗しました。${code}`);
     } finally {
       setLoadingCourses(false);
       setLoadingBookings(false);

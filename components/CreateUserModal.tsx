@@ -22,7 +22,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ onClose, onCreate }) 
     try {
         await onCreate({ name, email, role });
     } catch (err: any) {
-        setError(err.message || 'ユーザー作成に失敗しました。');
+        const code = err.code ? ` (コード: ${err.code})` : '';
+        setError(`ユーザー作成に失敗しました。${code}`);
     } finally {
         setLoading(false);
     }

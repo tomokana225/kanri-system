@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { User, Course, Booking } from '../types';
 import {
   getAllUsers,
@@ -18,6 +18,133 @@ import CreateUserModal from './CreateUserModal';
 import UserEditModal from './UserEditModal';
 import CourseEditModal from './CourseEditModal';
 import AiCourseGenerateModal from './AiCourseGenerateModal';
+
+// --- Sub-components for better structure and resilience ---
+
+const UserTable = memo(({ users, onEdit, onDelete }: { users: User[], onEdit: (user: User) => void, onDelete: (id: string) => void }) => (
+    <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+                <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">氏名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">役割</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
+                </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+                {users.map(user => {
+                    if (!user || !user.id) return null; // Data integrity check
+                    return (
+                        <tr key={user.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.name || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{user.role || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                <button onClick={() => onEdit(user)} className="text-indigo-600 hover:text-indigo-900">編集</button>
+                                <button onClick={() => onDelete(user.id)} className="text-red-600 hover:text-red-900">削除</button>
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    </div>
+));
+
+const CourseTable = memo(({ courses, userMap, onEdit, onDelete }: { courses: Course[], userMap: Map<string, string>, onEdit: (course: Course) => void, onDelete: (id: string) => void }) => (
+    <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+                <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コース名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">担当教師</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生徒数</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
+                </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+                {courses.map(course => {
+                    if (!course || !course.id) return null; // Data integrity check
+                    return (
+                        <tr key={course.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{course.title || 'N/A'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(course.teacherId) || '割り当てなし'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(course.studentIds || []).length}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                <button onClick={() => onEdit(course)} className="text-indigo-600 hover:text-indigo-900">編集</button>
+                                <button onClick={() => onDelete(course.id)} className="text-red-600 hover:text-red-900">削除</button>
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    </div>
+));
+
+const BookingTable = memo(({ bookings, userMap, onCancel }: { bookings: Booking[], userMap: Map<string, string>, onCancel: (id: string) => void }) => {
+    const statusClasses = {
+        pending: 'bg-yellow-100 text-yellow-800',
+        confirmed: 'bg-green-100 text-green-800',
+        cancelled: 'bg-red-100 text-red-800',
+    };
+    const statusText = {
+        pending: '保留中',
+        confirmed: '確定済み',
+        cancelled: 'キャンセル済み',
+    };
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                    <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生徒</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">教師</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コース</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日時</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                    {bookings.map(booking => {
+                        if (!booking || !booking.id) return null; // Data integrity check
+
+                        const status = booking.status || 'unknown';
+                        const statusClassName = statusClasses[status as keyof typeof statusClasses] || 'bg-gray-100 text-gray-800';
+                        const statusDisplayText = statusText[status as keyof typeof statusText] || '不明';
+                        const bookingDate = (booking.startTime && typeof booking.startTime.toDate === 'function')
+                            ? booking.startTime.toDate().toLocaleString('ja-JP')
+                            : 'N/A';
+
+                        return (
+                            <tr key={booking.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userMap.get(booking.studentId) || '不明'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId) || '不明'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.courseTitle || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bookingDate}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClassName}`}>
+                                        {statusDisplayText}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    {booking.status === 'confirmed' && (
+                                        <button onClick={() => onCancel(booking.id)} className="text-red-600 hover:text-red-900">
+                                            キャンセル
+                                        </button>
+                                    )}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+});
 
 
 const AdminPortal: React.FC = () => {
@@ -45,7 +172,8 @@ const AdminPortal: React.FC = () => {
             setBookings(fetchedBookings);
         } catch (e: any) {
             console.error("Admin data fetching failed:", e);
-            setError("データの読み込みに失敗しました。");
+            const code = e.code ? ` (コード: ${e.code})` : '';
+            setError(`データの読み込みに失敗しました。${code}`);
         } finally {
             setLoading(false);
         }
@@ -65,9 +193,10 @@ const AdminPortal: React.FC = () => {
             await apiUpdateUser(uid, userData);
             setEditingUser(null);
             await fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to update user:", error);
-            setError("ユーザーの更新に失敗しました。");
+            const code = error.code ? ` (コード: ${error.code})` : '';
+            setError(`ユーザーの更新に失敗しました。${code}`);
         }
     };
     
@@ -76,9 +205,10 @@ const AdminPortal: React.FC = () => {
             try {
                 await deleteUser(uid);
                 await fetchData();
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Failed to delete user:", error);
-                setError("ユーザーの削除に失敗しました。");
+                const code = error.code ? ` (コード: ${error.code})` : '';
+                setError(`ユーザーの削除に失敗しました。${code}`);
             }
         }
     };
@@ -92,9 +222,10 @@ const AdminPortal: React.FC = () => {
             }
             setEditingCourse(null);
             await fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save course:", error);
-            setError("コースの保存に失敗しました。");
+            const code = error.code ? ` (コード: ${error.code})` : '';
+            setError(`コースの保存に失敗しました。${code}`);
         }
     };
 
@@ -103,9 +234,10 @@ const AdminPortal: React.FC = () => {
             try {
                 await deleteCourse(courseId);
                 await fetchData();
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Failed to delete course:", error);
-                setError("コースの削除に失敗しました。");
+                const code = error.code ? ` (コード: ${error.code})` : '';
+                setError(`コースの削除に失敗しました。${code}`);
             }
         }
     };
@@ -115,9 +247,10 @@ const AdminPortal: React.FC = () => {
             try {
                 await updateBooking(bookingId, { status: 'cancelled' });
                 await fetchData();
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Failed to cancel booking:", error);
-                setError("予約のキャンセルに失敗しました。");
+                const code = error.code ? ` (コード: ${error.code})` : '';
+                setError(`予約のキャンセルに失敗しました。${code}`);
             }
         }
     };
@@ -139,26 +272,15 @@ const AdminPortal: React.FC = () => {
         }
     };
     
-    const userMap = new Map(users.map(u => [u.id, u.name]));
-    const statusClasses = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        confirmed: 'bg-green-100 text-green-800',
-        cancelled: 'bg-red-100 text-red-800',
-    };
-    const statusText = {
-        pending: '保留中',
-        confirmed: '確定済み',
-        cancelled: 'キャンセル済み',
-    };
-
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+
+    const userMap = new Map(users.map(u => [u.id, u.name]));
 
     return (
         <div className="space-y-8">
             <h1 className="text-3xl font-bold text-gray-800">管理者ダッシュボード</h1>
             {error && <Alert message={error} type="error" />}
 
-            {/* User Management */}
             <div className="p-6 bg-white rounded-lg shadow">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">ユーザー管理</h2>
@@ -166,34 +288,9 @@ const AdminPortal: React.FC = () => {
                         新規ユーザー作成
                     </button>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">氏名</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">役割</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {users.map(user => (
-                                <tr key={user.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{user.role}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                        <button onClick={() => setEditingUser(user)} className="text-indigo-600 hover:text-indigo-900">編集</button>
-                                        <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900">削除</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <UserTable users={users} onEdit={setEditingUser} onDelete={handleDeleteUser} />
             </div>
 
-            {/* Course Management */}
             <div className="p-6 bg-white rounded-lg shadow">
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                     <h2 className="text-xl font-semibold">コース管理</h2>
@@ -206,87 +303,12 @@ const AdminPortal: React.FC = () => {
                         </button>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コース名</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">担当教師</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生徒数</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {courses.map(course => (
-                                <tr key={course.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{course.title}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(course.teacherId) || '割り当てなし'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(course.studentIds || []).length}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                        <button onClick={() => setEditingCourse(course)} className="text-indigo-600 hover:text-indigo-900">編集</button>
-                                        <button onClick={() => handleDeleteCourse(course.id)} className="text-red-600 hover:text-red-900">削除</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <CourseTable courses={courses} userMap={userMap} onEdit={setEditingCourse} onDelete={handleDeleteCourse} />
             </div>
             
-            {/* Booking Management */}
             <div className="p-6 bg-white rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-4">予約管理</h2>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生徒</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">教師</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コース</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日時</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {bookings.map(booking => {
-                                const statusClassName = booking.status && statusClasses[booking.status] 
-                                    ? statusClasses[booking.status] 
-                                    : 'bg-gray-100 text-gray-800';
-                                const statusDisplayText = booking.status && statusText[booking.status] 
-                                    ? statusText[booking.status] 
-                                    : '不明';
-                                
-                                const bookingDate = (booking.startTime && typeof booking.startTime.toDate === 'function')
-                                    ? booking.startTime.toDate().toLocaleString('ja-JP')
-                                    : 'N/A';
-
-                                return (
-                                    <tr key={booking.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userMap.get(booking.studentId) || '不明'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId) || '不明'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.courseTitle || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {bookingDate}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClassName}`}>
-                                            {statusDisplayText}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            {booking.status === 'confirmed' && (
-                                                <button onClick={() => handleCancelBooking(booking.id)} className="text-red-600 hover:text-red-900">
-                                                    キャンセル
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <BookingTable bookings={bookings} userMap={userMap} onCancel={handleCancelBooking} />
             </div>
 
             {isAiModalOpen && <AiCourseGenerateModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleGenerateCourseWithAi} />}
@@ -294,7 +316,6 @@ const AdminPortal: React.FC = () => {
             {editingUser && <UserEditModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleUpdateUser} />}
             {editingCourse && (
               <CourseEditModal
-                // Fix: Changed 'course' to 'editingCourse' which is the correct variable in this scope.
                 course={editingCourse.id ? editingCourse : null}
                 users={users}
                 onClose={() => setEditingCourse(null)}

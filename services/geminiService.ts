@@ -43,9 +43,10 @@ export async function generateStudentProgressSummary(student: User, courseTitle:
             contents: prompt,
         });
         return response.text || "現時点ではAIサマリーを生成できませんでした。";
-    } catch (error) {
+    } catch (error: any) {
         console.error("Gemini APIでのサマリー生成エラー:", error);
-        throw new Error("現在サマリーを生成できません。後でもう一度お試しください。");
+        const detail = error.message ? `: ${error.message}` : '';
+        throw new Error(`現在サマリーを生成できません。後でもう一度お試しください${detail}`);
     }
 }
 
@@ -90,13 +91,14 @@ export async function generateCourseDetails(topic: string): Promise<{ title: str
         
         return JSON.parse(jsonText);
 
-    } catch (error)
+    } catch (error: any)
     {
         console.error("Gemini APIでのコース詳細生成エラー:", error);
         if (error instanceof SyntaxError) {
              throw new Error("AIからの応答を解析できませんでした。形式が正しくない可能性があります。");
         }
-        throw new Error("AIによるコース生成に失敗しました。後でもう一度お試しください。");
+        const detail = error.message ? `: ${error.message}` : '';
+        throw new Error(`AIによるコース生成に失敗しました。後でもう一度お試しください${detail}`);
     }
 }
 
@@ -115,8 +117,9 @@ export async function generateLessonPlan(courseTitle: string): Promise<string> {
             contents: prompt,
         });
         return response.text || "現時点ではレッスン案を生成できませんでした。";
-    } catch (error) {
+    } catch (error: any) {
         console.error("Gemini APIでのレッスン案生成エラー:", error);
-        throw new Error("現在レッスン案を生成できません。後でもう一度お試しください。");
+        const detail = error.message ? `: ${error.message}` : '';
+        throw new Error(`現在レッスン案を生成できません。後でもう一度お試しください${detail}`);
     }
 }

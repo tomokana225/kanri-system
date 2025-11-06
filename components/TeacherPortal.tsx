@@ -33,7 +33,8 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
                 setBookings(teacherBookings);
             } catch (e: any) {
                 console.error("教師データの取得に失敗:", e);
-                setError("ダッシュボードデータの読み込みに失敗しました。");
+                const code = e.code ? ` (コード: ${e.code})` : '';
+                setError(`ダッシュボードデータの読み込みに失敗しました。${code}`);
             } finally {
                 setLoading(false);
             }

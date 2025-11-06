@@ -36,7 +36,8 @@ const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onSave }) 
       await onSave(user.id, { name, email, role });
       onClose();
     } catch (err: any) {
-      setError(err.message || 'ユーザーの更新に失敗しました。');
+      const code = err.code ? ` (コード: ${err.code})` : '';
+      setError(`ユーザーの更新に失敗しました。${code}`);
     } finally {
       setLoading(false);
     }
