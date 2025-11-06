@@ -1,10 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
+    "outDir": "dist/functions",
+    "rootDir": "functions",
     "noEmit": false,
     "isolatedModules": false,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "allowImportingTsExtensions": false
   },
   "include": ["functions/**/*.ts"]
 }
