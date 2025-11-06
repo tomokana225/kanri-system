@@ -249,26 +249,37 @@ const AdminPortal: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {bookings.map(booking => (
-                                <tr key={booking.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userMap.get(booking.studentId) || '不明'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId) || '不明'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.courseTitle || 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.startTime.toDate().toLocaleString('ja-JP')}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClasses[booking.status]}`}>
-                                          {statusText[booking.status]}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        {booking.status === 'confirmed' && (
-                                            <button onClick={() => handleCancelBooking(booking.id)} className="text-red-600 hover:text-red-900">
-                                                キャンセル
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
+                            {bookings.map(booking => {
+                                const statusClassName = booking.status && statusClasses[booking.status] 
+                                    ? statusClasses[booking.status] 
+                                    : 'bg-gray-100 text-gray-800';
+                                const statusDisplayText = booking.status && statusText[booking.status] 
+                                    ? statusText[booking.status] 
+                                    : '不明';
+
+                                return (
+                                    <tr key={booking.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{userMap.get(booking.studentId) || '不明'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId) || '不明'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.courseTitle || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {booking.startTime ? booking.startTime.toDate().toLocaleString('ja-JP') : 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClassName}`}>
+                                            {statusDisplayText}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            {booking.status === 'confirmed' && (
+                                                <button onClick={() => handleCancelBooking(booking.id)} className="text-red-600 hover:text-red-900">
+                                                    キャンセル
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
