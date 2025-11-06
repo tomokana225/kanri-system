@@ -274,7 +274,7 @@ const AdminPortal: React.FC = () => {
     
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
 
-    const userMap = new Map(users.map(u => [u.id, u.name]));
+    const userMap = new Map(users.filter(u => u && u.id).map(u => [u.id, u.name]));
 
     return (
         <div className="space-y-8">

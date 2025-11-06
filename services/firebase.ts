@@ -74,7 +74,10 @@ export async function getAllUsers(): Promise<User[]> {
     const querySnapshot = await getDocs(usersRef);
     const users: User[] = [];
     querySnapshot.forEach((doc) => {
-        users.push({ id: doc.id, ...doc.data() } as User);
+        const data = doc.data();
+        if (data) { // Ensure data exists to prevent crashes
+            users.push({ id: doc.id, ...data } as User);
+        }
     });
     return users;
 }
@@ -101,7 +104,10 @@ export async function getStudentCourses(studentId: string): Promise<Course[]> {
 
     const courses: Course[] = [];
     querySnapshot.forEach((doc) => {
-        courses.push({ id: doc.id, ...doc.data() } as Course);
+        const data = doc.data();
+        if (data) {
+            courses.push({ id: doc.id, ...data } as Course);
+        }
     });
 
     return courses;
@@ -115,7 +121,10 @@ export async function getTeacherCourses(teacherId: string): Promise<Course[]> {
 
     const courses: Course[] = [];
     querySnapshot.forEach((doc) => {
-        courses.push({ id: doc.id, ...doc.data() } as Course);
+        const data = doc.data();
+        if (data) {
+            courses.push({ id: doc.id, ...data } as Course);
+        }
     });
 
     return courses;
@@ -128,7 +137,10 @@ export async function getAllCourses(): Promise<Course[]> {
     const querySnapshot = await getDocs(coursesRef);
     const courses: Course[] = [];
     querySnapshot.forEach((doc) => {
-        courses.push({ id: doc.id, ...doc.data() } as Course);
+        const data = doc.data();
+        if (data) { // Ensure data exists
+            courses.push({ id: doc.id, ...data } as Course);
+        }
     });
     return courses;
 }
@@ -160,7 +172,10 @@ export async function getAllBookings(): Promise<Booking[]> {
 
     const bookings: Booking[] = [];
     querySnapshot.forEach((doc) => {
-        bookings.push({ id: doc.id, ...doc.data() } as Booking);
+        const data = doc.data();
+        if (data) { // Ensure data exists
+            bookings.push({ id: doc.id, ...data } as Booking);
+        }
     });
     return bookings;
 }
@@ -173,7 +188,10 @@ export async function getTeacherBookings(teacherId: string): Promise<Booking[]> 
 
     const bookings: Booking[] = [];
     querySnapshot.forEach((doc) => {
-        bookings.push({ id: doc.id, ...doc.data() } as Booking);
+        const data = doc.data();
+        if (data) {
+            bookings.push({ id: doc.id, ...data } as Booking);
+        }
     });
     return bookings;
 }
@@ -186,7 +204,10 @@ export async function getStudentBookings(studentId: string): Promise<Booking[]> 
 
     const bookings: Booking[] = [];
     querySnapshot.forEach((doc) => {
-        bookings.push({ id: doc.id, ...doc.data() } as Booking);
+        const data = doc.data();
+        if (data) {
+            bookings.push({ id: doc.id, ...data } as Booking);
+        }
     });
     // Sort by start time, soonest first
     return bookings.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
@@ -215,7 +236,10 @@ export async function getUserNotifications(userId: string): Promise<Notification
 
     const notifications: Notification[] = [];
     querySnapshot.forEach((doc) => {
-        notifications.push({ id: doc.id, ...doc.data() } as Notification);
+        const data = doc.data();
+        if (data) {
+            notifications.push({ id: doc.id, ...data } as Notification);
+        }
     });
     // Sort by creation date, newest first
     return notifications.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
