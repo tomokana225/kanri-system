@@ -83,7 +83,7 @@ export async function generateCourseDetails(topic: string): Promise<{ title: str
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = response.text?.trim();
         if (!jsonText) {
             throw new Error("AIからの応答が空です。");
         }
