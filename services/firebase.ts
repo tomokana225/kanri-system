@@ -164,6 +164,26 @@ export async function getTeacherBookings(teacherId: string): Promise<Booking[]> 
     return bookings;
 }
 
+export async function getStudentBookings(studentId: string): Promise<Booking[]> {
+    const { db } = await initializeFirebase();
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(bookingsRef, where('studentId', '==', studentId), where('status', '==', 'confirmed'));
+    const querySnapshot = await getDocs(q);
+
+    const bookings: Booking[] = [];
+    querySnapshot.forEach((doc) => {
+        bookings.push({ id: doc.id, ...doc.data() } as Booking);
+    });
+    // Sort by start time, soonest first
+    return bookings.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+}
+
+export async function createBooking(bookingData: Omit<Booking, 'id'>): Promise<void> {
+    const { db } = await initializeFirebase();
+    const bookingsRef = collection(db, 'bookings');
+    await addDoc(bookingsRef, bookingData);
+}
+
 // --- Notification Management ---
 
 export async function getUserNotifications(userId: string): Promise<Notification[]> {

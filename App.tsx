@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { initializeFirebase, getUserProfile } from './services/firebase';
+import { initializeFirebase, getUserProfile, createUserProfile } from './services/firebase';
 import { User } from './types';
 import Login from './components/Login';
 import Header from './components/Header';
@@ -27,13 +27,29 @@ const App: React.FC = () => {
             if (userProfile) {
               setUser(userProfile);
             } else {
-              console.error("Firestoreにユーザープロファイルが見つかりません:", firebaseUser.uid);
-              setUser({
+              console.log("Firestoreにユーザープロファイルが見つかりません。新規作成します:", firebaseUser.uid);
+              const isHardcodedAdmin = firebaseUser.email === 'admin@test.com';
+              const role = isHardcodedAdmin ? 'admin' : 'student';
+
+              const newUser: User = {
                 id: firebaseUser.uid,
                 name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '新規ユーザー',
                 email: firebaseUser.email || '',
-                role: 'student'
-              });
+                role: role,
+              };
+              
+              try {
+                await createUserProfile(firebaseUser.uid, {
+                  name: newUser.name,
+                  email: newUser.email,
+                  role: newUser.role
+                });
+                setUser(newUser);
+              } catch (profileError) {
+                console.error("ユーザープロファイルの作成に失敗:", profileError);
+                setUser(null); 
+                setInitializationError("ユーザープロファイルの作成に失敗しました。");
+              }
             }
           } else {
             setUser(null);

@@ -9,11 +9,13 @@ import {
   updateUser as apiUpdateUser,
   updateCourse as apiUpdateCourse,
 } from '../services/firebase';
+import { generateCourseDetails } from '../services/geminiService';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import CreateUserModal from './CreateUserModal';
 import UserEditModal from './UserEditModal';
 import CourseEditModal from './CourseEditModal';
+import AiCourseGenerateModal from './AiCourseGenerateModal';
 
 
 const AdminPortal: React.FC = () => {
@@ -22,6 +24,7 @@ const AdminPortal: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
     
@@ -48,8 +51,6 @@ const AdminPortal: React.FC = () => {
     }, [fetchData]);
 
     const handleCreateUser = async (newUser: Omit<User, 'id'>) => {
-        // Creating Firebase Auth users from the client is not recommended without Admin SDK.
-        // This would typically be a call to a serverless function.
         alert(`ユーザー「${newUser.name}」の作成機能は現在シミュレートされています。完全な実装にはFirebase Admin SDKが必要です。`);
         setIsUserModalOpen(false);
     };
@@ -104,6 +105,23 @@ const AdminPortal: React.FC = () => {
         }
     };
 
+    const handleGenerateCourseWithAi = async (topic: string) => {
+        try {
+            const { title, description } = await generateCourseDetails(topic);
+            const newCourseFromAi: Omit<Course, 'id'> & { id?: string } = {
+                title,
+                description,
+                teacherId: '',
+                studentIds: [],
+            };
+            setEditingCourse(newCourseFromAi as Course);
+            setIsAiModalOpen(false);
+        } catch (error: any) {
+            console.error("AI course generation failed:", error);
+            throw error;
+        }
+    };
+
     const teacherMap = new Map(users.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
 
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
@@ -150,11 +168,16 @@ const AdminPortal: React.FC = () => {
 
             {/* Course Management */}
             <div className="p-6 bg-white rounded-lg shadow">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                     <h2 className="text-xl font-semibold">コース管理</h2>
-                    <button onClick={() => setEditingCourse({} as Course)} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                        新規コース作成
-                    </button>
+                     <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => setIsAiModalOpen(true)} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                            AIでコースを生成
+                        </button>
+                        <button onClick={() => setEditingCourse({} as Course)} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                            新規コース作成
+                        </button>
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -183,6 +206,7 @@ const AdminPortal: React.FC = () => {
                 </div>
             </div>
 
+            {isAiModalOpen && <AiCourseGenerateModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleGenerateCourseWithAi} />}
             {isUserModalOpen && <CreateUserModal onClose={() => setIsUserModalOpen(false)} onCreate={handleCreateUser} />}
             {editingUser && <UserEditModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleUpdateUser} />}
             {editingCourse && (

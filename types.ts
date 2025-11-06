@@ -10,7 +10,7 @@ export interface User {
 }
 
 export interface Course {
-  id: string;
+  id:string;
   title: string;
   description: string;
   teacherId: string;
@@ -23,6 +23,7 @@ export interface Booking {
   studentId: string;
   studentName?: string;
   teacherId: string;
+  courseId: string;
   startTime: Timestamp;
   endTime: Timestamp;
   status: 'pending' | 'confirmed' | 'cancelled';
