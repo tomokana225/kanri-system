@@ -12,32 +12,50 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentFirebaseError, setFirebaseError] = useState<string | null>(firebaseError);
 
   useEffect(() => {
+    // 同期的な初期化エラーが既に存在する場合は、ここで処理を停止
+    if (firebaseError) {
+      setLoading(false);
+      return;
+    }
+
     if (auth) {
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          const userProfile = await getUserProfile(firebaseUser.uid);
-          if (userProfile) {
-            setUser(userProfile);
+        try {
+          if (firebaseUser) {
+            const userProfile = await getUserProfile(firebaseUser.uid);
+            if (userProfile) {
+              setUser(userProfile);
+            } else {
+              console.error("Firestoreにユーザープロファイルが見つかりません:", firebaseUser.uid);
+              // サインアップ直後などでプロファイルがまだない場合、一時的なユーザー情報を設定
+              setUser({
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '新規ユーザー',
+                email: firebaseUser.email || '',
+                role: 'student' // デフォルト
+              });
+            }
           } else {
-            console.error("Firestoreにユーザープロファイルが見つかりません:", firebaseUser.uid);
-            // サインアップ直後などでプロファイルがまだない場合、一時的なユーザー情報を設定
-            setUser({
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '新規ユーザー',
-              email: firebaseUser.email || '',
-              role: 'student' // デフォルト
-            });
+            setUser(null);
           }
-        } else {
-          setUser(null);
+        } catch (error: any) {
+          console.error("Firebase Auth State Error:", error);
+          if (error.code === 'auth/network-request-failed' || error.code === 'auth/api-key-not-valid') {
+              setFirebaseError("Firebase APIキーが無効か、ネットワークに問題があります。デプロイ環境のシークレットキー設定を確認してください。");
+          } else {
+              setFirebaseError("ユーザー情報の取得中にエラーが発生しました。");
+          }
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       });
 
       return () => unsubscribe();
     } else {
+      // authがnullの場合 (設定不備で初期化されなかったケース)
       setLoading(false);
     }
   }, []);
@@ -48,15 +66,15 @@ const App: React.FC = () => {
     }
   };
 
-  if (firebaseError) {
+  if (currentFirebaseError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
         <div className="w-full max-w-2xl p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
             <h1 className="text-2xl font-bold text-red-600">アプリケーション設定エラー</h1>
-            <p className="text-gray-700">{firebaseError}</p>
+            <p className="text-gray-700">{currentFirebaseError}</p>
             <div className="text-left bg-gray-50 p-6 rounded-md text-sm text-gray-600">
               <p className="font-semibold mb-2 text-base">修正方法:</p>
-              <p className="mb-2">このエラーは通常、Firebaseの環境変数がデプロイ環境で正しく設定されていないことを意味します。</p>
+              <p className="mb-2">このエラーは、FirebaseのAPIキーが無効であるか、デプロイ環境で正しく設定されていない場合に発生します。</p>
               <p>1. ご利用のホスティングプロバイダー（例: Cloudflare Pages, Vercel, Netlify）のダッシュボードに移動します。</p>
               <p>2. このプロジェクトの「環境変数」または「シークレットキー」の設定を探します。</p>
               <p>3. 以下の変数がFirebaseプロジェクトの正しい値で設定されていることを確認してください:</p>
