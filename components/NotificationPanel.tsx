@@ -3,14 +3,14 @@ import { Notification } from '../types';
 import { CloseIcon } from './icons';
 import Spinner from './Spinner';
 
-// Mock notification service
+// モック通知サービス
 const getNotifications = async (): Promise<Notification[]> => {
-    // Simulate API delay
+    // APIの遅延をシミュレート
     await new Promise(resolve => setTimeout(resolve, 500));
     return [
-        { id: '1', userId: '1', message: 'Your assignment "Final Project Proposal" is due tomorrow.', read: false, createdAt: new Date(Date.now() - 3600000) },
-        { id: '2', userId: '1', message: 'New course material available for "Advanced React".', read: true, createdAt: new Date(Date.now() - 86400000) },
-        { id: '3', userId: '1', message: 'Your teacher left feedback on your essay.', read: false, createdAt: new Date(Date.now() - 172800000) },
+        { id: '1', userId: '1', message: '課題「最終プロジェクト提案」の提出期限は明日です。', read: false, createdAt: new Date(Date.now() - 3600000) },
+        { id: '2', userId: '1', message: '「高度なReact」の新しい教材が利用可能です。', read: true, createdAt: new Date(Date.now() - 86400000) },
+        { id: '3', userId: '1', message: '先生があなたのエッセイにフィードバックを残しました。', read: false, createdAt: new Date(Date.now() - 172800000) },
     ];
 }
 
@@ -35,7 +35,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
     return (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-10 border border-gray-200">
             <div className="flex justify-between items-center p-3 border-b">
-                <h3 className="font-semibold text-gray-700">Notifications</h3>
+                <h3 className="font-semibold text-gray-700">通知</h3>
                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
                     <CloseIcon className="h-5 w-5" />
                 </button>
@@ -53,7 +53,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
                         </div>
                     ))
                 ) : (
-                    <p className="p-4 text-gray-500">No new notifications.</p>
+                    <p className="p-4 text-gray-500">新しい通知はありません。</p>
                 )}
             </div>
         </div>

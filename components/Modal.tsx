@@ -19,7 +19,7 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
         <div className="flex items-center justify-between p-4 border-b">
           <h3 id="modal-title" className="text-lg font-semibold text-gray-800">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <span className="sr-only">Close</span>
+            <span className="sr-only">閉じる</span>
             <CloseIcon className="w-6 h-6" />
           </button>
         </div>

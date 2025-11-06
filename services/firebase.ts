@@ -32,10 +32,10 @@ if (isConfigured) {
     db = getFirestore(app);
   } catch (e: any) {
     console.error("Firebase initialization error:", e);
-    firebaseError = `Failed to initialize Firebase. Please check your configuration. Error: ${e.message}`;
+    firebaseError = `Firebaseの初期化に失敗しました。設定を確認してください。エラー: ${e.message}`;
   }
 } else {
-  firebaseError = "Firebase configuration is incomplete. Please ensure all FIREBASE_ environment variables are set in your .env file.";
+  firebaseError = "Firebaseの設定が不完全です。すべてのFIREBASE_で始まる環境変数が設定されているか確認してください。";
   console.error(firebaseError);
 }
 

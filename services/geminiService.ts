@@ -11,37 +11,37 @@ if (apiKey) {
     ai = new GoogleGenAI({ apiKey });
   } catch (e: any) {
     console.error("Gemini AI initialization error:", e);
-    geminiError = `Failed to initialize Gemini AI. Error: ${e.message}`;
+    geminiError = `Gemini AIの初期化に失敗しました。エラー: ${e.message}`;
   }
 } else {
-  geminiError = "Gemini API key is not configured. Please set the 'API_KEY' environment variable to use AI features.";
+  geminiError = "Gemini APIキーが設定されていません。AI機能を使用するには、'API_KEY'環境変数を設定してください。";
   console.error(geminiError);
 }
 
 /**
- * Generates a summary for a student's progress.
- * @param student The student user object.
- * @param courseTitle The title of the course.
- * @returns A summary string.
+ * 学生の進捗サマリーを生成します。
+ * @param student 学生ユーザーオブジェクト。
+ * @param courseTitle コースのタイトル。
+ * @returns サマリー文字列。
  */
 export async function generateStudentProgressSummary(student: User, courseTitle: string): Promise<string> {
     if (!ai || geminiError) {
-        return Promise.reject(new Error(geminiError || "Gemini AI is not available."));
+        return Promise.reject(new Error(geminiError || "Gemini AIは利用できません。"));
     }
     
-    const prompt = `Generate a concise, encouraging progress summary for a student named ${student.name} in the course "${courseTitle}". Mention their recent activity and suggest one area for improvement. Keep it under 100 words.`;
+    const prompt = `学生「${student.name}」のコース「${courseTitle}」における進捗について、簡潔で励みになるサマリーを生成してください。最近の活動に触れ、改善点を1つ提案してください。100ワード未満でお願いします。`;
 
     try {
-        // Use ai.models.generateContent for text generation
+        // テキスト生成には ai.models.generateContent を使用します
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash", // Basic Text Task model
+            model: "gemini-2.5-flash", // 基本的なテキストタスクモデル
             contents: prompt,
         });
 
-        // Use response.text to directly access the generated text, with a fallback
-        return response.text ?? "AI summary could not be generated at this time.";
+        // response.text を使用して生成されたテキストに直接アクセスし、フォールバックも用意します
+        return response.text ?? "現時点ではAIサマリーを生成できませんでした。";
     } catch (error) {
-        console.error("Error generating summary with Gemini API:", error);
-        return Promise.reject(new Error("Could not generate a summary at this time. Please try again later."));
+        console.error("Gemini APIでのサマリー生成エラー:", error);
+        return Promise.reject(new Error("現在サマリーを生成できません。後でもう一度お試しください。"));
     }
 }

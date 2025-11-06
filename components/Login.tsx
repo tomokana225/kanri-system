@@ -16,7 +16,7 @@ const Login: React.FC = () => {
     setLoading(true);
 
     if (!auth) {
-      setError("Authentication service is not available. Please check your Firebase configuration.");
+      setError("認証サービスが利用できません。Firebaseの設定を確認してください。");
       setLoading(false);
       return;
     }
@@ -38,13 +38,13 @@ const Login: React.FC = () => {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-center text-gray-900">
-          {isLogin ? 'Welcome Back!' : 'Create an Account'}
+          {isLogin ? 'おかえりなさい！' : 'アカウントを作成'}
         </h2>
         {error && <Alert message={error} type="error" />}
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="text-sm font-medium text-gray-700">
-              Email address
+              メールアドレス
             </label>
             <input
               id="email"
@@ -63,7 +63,7 @@ const Login: React.FC = () => {
               htmlFor="password"
               className="text-sm font-medium text-gray-700"
             >
-              Password
+              パスワード
             </label>
             <input
               id="password"
@@ -83,17 +83,17 @@ const Login: React.FC = () => {
               disabled={loading}
               className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}
+              {loading ? '処理中...' : (isLogin ? 'サインイン' : 'サインアップ')}
             </button>
           </div>
         </form>
         <p className="text-sm text-center text-gray-600">
-          {isLogin ? "Don't have an account?" : 'Already have an account?'}
+          {isLogin ? "アカウントをお持ちでないですか？" : 'すでにアカウントをお持ちですか？'}
           <button
             onClick={() => setIsLogin(!isLogin)}
             className="ml-1 font-medium text-blue-600 hover:text-blue-500"
           >
-            {isLogin ? 'Sign up' : 'Sign in'}
+            {isLogin ? 'サインアップ' : 'サインイン'}
           </button>
         </p>
       </div>

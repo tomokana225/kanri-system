@@ -13,10 +13,16 @@ const Alert: React.FC<AlertProps> = ({ message, type }) => {
     warning: 'bg-yellow-100 text-yellow-800',
     info: 'bg-blue-100 text-blue-800',
   };
+  const typeText = {
+      success: '成功',
+      error: 'エラー',
+      warning: '警告',
+      info: '情報'
+  }
 
   return (
     <div className={`${baseClasses} ${typeClasses[type]}`} role="alert">
-      <span className="font-medium">{type.charAt(0).toUpperCase() + type.slice(1)}:</span> {message}
+      <span className="font-medium">{typeText[type]}:</span> {message}
     </div>
   );
 };

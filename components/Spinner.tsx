@@ -8,7 +8,7 @@ const Spinner: React.FC = () => {
       fill="none"
       viewBox="0 0 24 24"
       role="status"
-      aria-label="loading"
+      aria-label="読み込み中"
     >
       <circle
         className="opacity-25"
