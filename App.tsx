@@ -65,7 +65,7 @@ const App: React.FC = () => {
               <p>1. Create a file named <code>.env</code> in the root directory of the project.</p>
               <p>2. Add your Firebase project configuration to this file. It should look like this:</p>
               <pre className="mt-2 p-2 bg-gray-200 rounded text-xs overflow-x-auto">
-                {`VITE_FIREBASE_API_KEY=YourApiKey\nVITE_FIREBASE_AUTH_DOMAIN=YourAuthDomain\nVITE_FIREBASE_PROJECT_ID=YourProjectId\n...etc`}
+                {`FIREBASE_API_KEY=YourApiKey\nFIREBASE_AUTH_DOMAIN=YourAuthDomain\nFIREBASE_PROJECT_ID=YourProjectId\n...etc`}
               </pre>
               <p className="mt-2">3. After saving the file, you may need to restart the development server.</p>
             </div>
