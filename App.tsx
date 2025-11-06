@@ -57,17 +57,19 @@ const App: React.FC = () => {
   if (firebaseError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-        <div className="w-full max-w-xl p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
+        <div className="w-full max-w-2xl p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
             <h1 className="text-2xl font-bold text-red-600">Application Configuration Error</h1>
             <p className="text-gray-700">{firebaseError}</p>
-            <div className="text-left bg-gray-50 p-4 rounded-md text-sm text-gray-600">
-              <p className="font-semibold mb-2">How to fix this:</p>
-              <p>1. Create a file named <code>.env</code> in the root directory of the project.</p>
-              <p>2. Add your Firebase project configuration to this file. It should look like this:</p>
-              <pre className="mt-2 p-2 bg-gray-200 rounded text-xs overflow-x-auto">
-                {`FIREBASE_API_KEY=YourApiKey\nFIREBASE_AUTH_DOMAIN=YourAuthDomain\nFIREBASE_PROJECT_ID=YourProjectId\n...etc`}
+            <div className="text-left bg-gray-50 p-6 rounded-md text-sm text-gray-600">
+              <p className="font-semibold mb-2 text-base">How to fix this:</p>
+              <p className="mb-2">This error usually means the Firebase environment variables are not set correctly in your deployment environment.</p>
+              <p>1. Go to your hosting provider's dashboard (e.g., Cloudflare Pages, Vercel, Netlify).</p>
+              <p>2. Find the settings for "Environment Variables" or "Secret Keys" for this project.</p>
+              <p>3. Ensure the following variables are set with the correct values from your Firebase project:</p>
+              <pre className="mt-3 p-3 bg-gray-200 rounded text-xs overflow-x-auto">
+                {`FIREBASE_API_KEY\nFIREBASE_AUTH_DOMAIN\nFIREBASE_PROJECT_ID\nFIREBASE_STORAGE_BUCKET\nFIREBASE_MESSAGING_SENDER_ID\nFIREBASE_APP_ID\nFIREBASE_MEASUREMENT_ID`}
               </pre>
-              <p className="mt-2">3. After saving the file, you may need to restart the development server.</p>
+              <p className="mt-3">4. After adding or updating the variables, you may need to redeploy the application for the changes to take effect.</p>
             </div>
         </div>
       </div>
