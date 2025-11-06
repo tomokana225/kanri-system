@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             <BellIcon />
           </button>
-          {showNotifications && <NotificationPanel onClose={() => setShowNotifications(false)} />}
+          {showNotifications && <NotificationPanel user={user} onClose={() => setShowNotifications(false)} />}
         </div>
         <button
           onClick={onLogout}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { auth, firebaseError } from './services/firebase';
-import { User, UserRole } from './types';
+import { auth, firebaseError, getUserProfile } from './services/firebase';
+import { User } from './types';
 import Login from './components/Login';
 import Header from './components/Header';
 import StudentPortal from './components/StudentPortal';
@@ -9,30 +9,27 @@ import AdminPortal from './components/AdminPortal';
 import Spinner from './components/Spinner';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
-// モック関数：ユーザーの役割を取得します。実際のアプリではFirestoreなどから取得します。
-const getUserRole = (email: string | null): UserRole => {
-  if (email?.includes('student')) return 'student';
-  if (email?.includes('teacher')) return 'teacher';
-  if (email?.includes('admin')) return 'admin';
-  return 'student'; // デフォルト
-}
-
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // authが初期化されている場合のみ購読します
     if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, firebaseUser => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
-          const currentUser: User = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'ユーザー',
-            email: firebaseUser.email || '',
-            role: getUserRole(firebaseUser.email)
-          };
-          setUser(currentUser);
+          const userProfile = await getUserProfile(firebaseUser.uid);
+          if (userProfile) {
+            setUser(userProfile);
+          } else {
+            console.error("Firestoreにユーザープロファイルが見つかりません:", firebaseUser.uid);
+            // サインアップ直後などでプロファイルがまだない場合、一時的なユーザー情報を設定
+            setUser({
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '新規ユーザー',
+              email: firebaseUser.email || '',
+              role: 'student' // デフォルト
+            });
+          }
         } else {
           setUser(null);
         }
@@ -41,19 +38,16 @@ const App: React.FC = () => {
 
       return () => unsubscribe();
     } else {
-      // authが初期化されていない場合はローディングを停止します
       setLoading(false);
     }
   }, []);
 
   const handleLogout = async () => {
-    // サインアウトする前にauthが初期化されているか確認します
     if (auth) {
       await signOut(auth);
     }
   };
 
-  // Firebaseの初期化に失敗した場合に設定エラーを表示します
   if (firebaseError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -91,7 +85,7 @@ const App: React.FC = () => {
           <Header user={user} onLogout={handleLogout} />
           <main className="p-4 md:p-8">
             {user.role === 'student' && <StudentPortal user={user} />}
-            {user.role === 'teacher' && <TeacherPortal />}
+            {user.role === 'teacher' && <TeacherPortal user={user} />}
             {user.role === 'admin' && <AdminPortal />}
           </main>
         </>

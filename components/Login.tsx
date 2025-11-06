@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { auth } from '../services/firebase';
+import { auth, createUserProfile } from '../services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import Alert from './Alert';
+import { User } from '../types';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -25,10 +26,25 @@ const Login: React.FC = () => {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const firebaseUser = userCredential.user;
+        const newUserProfile: Omit<User, 'id'> = {
+          email: firebaseUser.email!,
+          name: firebaseUser.email!.split('@')[0],
+          role: 'student', // 新規登録時のデフォルトロール
+        };
+        await createUserProfile(firebaseUser.uid, newUserProfile);
       }
     } catch (err: any) {
-      setError(err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('このメールアドレスは既に使用されています。');
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        setError('メールアドレスまたはパスワードが正しくありません。');
+      }
+      else {
+        setError('エラーが発生しました。しばらくしてからもう一度お試しください。');
+      }
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -90,7 +106,7 @@ const Login: React.FC = () => {
         <p className="text-sm text-center text-gray-600">
           {isLogin ? "アカウントをお持ちでないですか？" : 'すでにアカウントをお持ちですか？'}
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => { setIsLogin(!isLogin); setError(''); }}
             className="ml-1 font-medium text-blue-600 hover:text-blue-500"
           >
             {isLogin ? 'サインアップ' : 'サインイン'}
