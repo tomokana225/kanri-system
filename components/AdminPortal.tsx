@@ -220,8 +220,8 @@ const AdminPortal: React.FC = () => {
                             {courses.map(course => (
                                 <tr key={course.id}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{course.title}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(course.teacherId) || course.teacherId}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.studentIds.length}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(course.teacherId) || '割り当てなし'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(course.studentIds || []).length}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                         <button onClick={() => setEditingCourse(course)} className="text-indigo-600 hover:text-indigo-900">編集</button>
                                         <button onClick={() => handleDeleteCourse(course.id)} className="text-red-600 hover:text-red-900">削除</button>
