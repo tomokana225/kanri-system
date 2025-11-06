@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth } from './services/firebase';
+import { auth, firebaseError } from './services/firebase';
 import { User, UserRole } from './types';
 import Login from './components/Login';
 import Header from './components/Header';
@@ -22,27 +22,57 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, firebaseUser => {
-      if (firebaseUser) {
-        const currentUser: User = {
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          email: firebaseUser.email || '',
-          role: getUserRole(firebaseUser.email)
-        };
-        setUser(currentUser);
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
+    // Only subscribe if auth is initialized
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, firebaseUser => {
+        if (firebaseUser) {
+          const currentUser: User = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            email: firebaseUser.email || '',
+            role: getUserRole(firebaseUser.email)
+          };
+          setUser(currentUser);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      });
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    } else {
+      // If auth is not initialized, stop loading
+      setLoading(false);
+    }
   }, []);
 
   const handleLogout = async () => {
-    await signOut(auth);
+    // Check if auth is initialized before signing out
+    if (auth) {
+      await signOut(auth);
+    }
   };
+
+  // Display configuration error if Firebase initialization failed
+  if (firebaseError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+        <div className="w-full max-w-xl p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
+            <h1 className="text-2xl font-bold text-red-600">Application Configuration Error</h1>
+            <p className="text-gray-700">{firebaseError}</p>
+            <div className="text-left bg-gray-50 p-4 rounded-md text-sm text-gray-600">
+              <p className="font-semibold mb-2">How to fix this:</p>
+              <p>1. Create a file named <code>.env</code> in the root directory of the project.</p>
+              <p>2. Add your Firebase project configuration to this file. It should look like this:</p>
+              <pre className="mt-2 p-2 bg-gray-200 rounded text-xs overflow-x-auto">
+                {`VITE_FIREBASE_API_KEY=YourApiKey\nVITE_FIREBASE_AUTH_DOMAIN=YourAuthDomain\nVITE_FIREBASE_PROJECT_ID=YourProjectId\n...etc`}
+              </pre>
+              <p className="mt-2">3. After saving the file, you may need to restart the development server.</p>
+            </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
