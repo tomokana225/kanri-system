@@ -12,7 +12,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentFirebaseError, setFirebaseError] = useState<string | null>(firebaseError);
+  const [currentFirebaseError] = useState<string | null>(firebaseError);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ const App: React.FC = () => {
               <p className="mb-2">このエラーは、アプリケーションの実行に必要な設定（APIキーなど）が不足しているか、無効な場合に発生します。</p>
               
               <h4 className="font-semibold mt-4 mb-2">ローカル開発環境の場合:</h4>
-              <p>1. プロジェクトの `public` フォルダにある `.env.example` ファイルをコピーして、`.env` という名前の新しいファイルを作成します。</p>
+              <p>1. プロジェクトの <strong>ルートディレクトリ</strong>（`package.json` と同じ階層）にある `.env.example` ファイルをコピーして、`.env` という名前の新しいファイルを作成します。</p>
               <p>2. `.env` ファイルを開き、あなたのFirebaseプロジェクトとGemini APIのキーを正しく設定してください。</p>
               <p>3. 変更を保存した後、開発サーバーを再起動してください。</p>
 
