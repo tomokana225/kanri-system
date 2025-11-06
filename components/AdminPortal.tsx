@@ -256,6 +256,10 @@ const AdminPortal: React.FC = () => {
                                 const statusDisplayText = booking.status && statusText[booking.status] 
                                     ? statusText[booking.status] 
                                     : '不明';
+                                
+                                const bookingDate = (booking.startTime && typeof booking.startTime.toDate === 'function')
+                                    ? booking.startTime.toDate().toLocaleString('ja-JP')
+                                    : 'N/A';
 
                                 return (
                                     <tr key={booking.id}>
@@ -263,7 +267,7 @@ const AdminPortal: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId) || '不明'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.courseTitle || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {booking.startTime ? booking.startTime.toDate().toLocaleString('ja-JP') : 'N/A'}
+                                            {bookingDate}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClassName}`}>
@@ -290,6 +294,7 @@ const AdminPortal: React.FC = () => {
             {editingUser && <UserEditModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleUpdateUser} />}
             {editingCourse && (
               <CourseEditModal
+                // Fix: Changed 'course' to 'editingCourse' which is the correct variable in this scope.
                 course={editingCourse.id ? editingCourse : null}
                 users={users}
                 onClose={() => setEditingCourse(null)}
