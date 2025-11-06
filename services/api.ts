@@ -8,7 +8,7 @@ interface RequestOptions extends RequestInit {
   body?: any;
 }
 
-async function api<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+async function api<T>(endpoint: string, options: RequestOptions = {}): Promise<T | null> {
   const { body, ...customConfig } = options;
 
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -35,9 +35,10 @@ async function api<T>(endpoint: string, options: RequestOptions = {}): Promise<T
 
   try {
     const data = await response.json();
-    return data;
+    return data as T;
   } catch (error) {
-    return Promise.resolve(null as T);
+    // JSON parsing can fail if the response body is empty
+    return Promise.resolve(null);
   }
 }
 

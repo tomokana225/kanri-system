@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, Auth } from 'firebase/auth';
 import { 
   getFirestore, 
   Firestore, 
@@ -122,8 +122,8 @@ export const getUserNotifications = async (userId: string): Promise<Notification
 // デモデータ投入
 export const seedDatabase = async () => {
     if (!db) throw new Error("Firestore is not initialized.");
-
-    const batch = writeBatch(db);
+    const firestore = db; // Use a local const for type inference
+    const batch = writeBatch(firestore);
 
     // デモユーザー
     const users: User[] = [
@@ -132,7 +132,7 @@ export const seedDatabase = async () => {
         { id: 'admin-demo', name: 'デモ管理者', email: 'admin-demo@test.com', role: 'admin' },
     ];
     users.forEach(user => {
-        const userRef = doc(db, "users", user.id);
+        const userRef = doc(firestore, "users", user.id);
         batch.set(userRef, user);
     });
 
@@ -142,7 +142,7 @@ export const seedDatabase = async () => {
         { title: '高度なReact', description: 'Reactの応用技術を学ぶ', teacherId: 'teacher-demo', teacherName: 'デモ先生', studentIds: ['student-demo'] },
     ];
     courses.forEach((course, index) => {
-        const courseRef = doc(db, "courses", `course-demo-${index + 1}`);
+        const courseRef = doc(firestore, "courses", `course-demo-${index + 1}`);
         batch.set(courseRef, course);
     });
     
@@ -151,7 +151,7 @@ export const seedDatabase = async () => {
         { studentId: 'student-demo', studentName: 'デモ学生', teacherId: 'teacher-demo', startTime: Timestamp.fromDate(new Date(Date.now() + 24 * 3600 * 1000)), endTime: Timestamp.fromDate(new Date(Date.now() + 25 * 3600 * 1000)), status: 'confirmed', courseTitle: 'AI入門' }
     ];
     bookings.forEach((booking, index) => {
-        const bookingRef = doc(db, "bookings", `booking-demo-${index + 1}`);
+        const bookingRef = doc(firestore, "bookings", `booking-demo-${index + 1}`);
         batch.set(bookingRef, booking);
     });
 
@@ -161,7 +161,7 @@ export const seedDatabase = async () => {
         { userId: 'teacher-demo', message: 'デモ学生さんとの面談が明日予定されています。', read: false, createdAt: Timestamp.now() },
     ];
     notifications.forEach((notification, index) => {
-        const notifRef = doc(db, "notifications", `notif-demo-${index + 1}`);
+        const notifRef = doc(firestore, "notifications", `notif-demo-${index + 1}`);
         batch.set(notifRef, notification);
     });
 
