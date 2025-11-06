@@ -1,22 +1,31 @@
 import { GoogleGenAI } from "@google/genai";
 import { User } from "../types";
-
-const apiKey = process.env.API_KEY;
+import { getConfig } from "./config";
 
 let ai: GoogleGenAI | null = null;
-export let geminiError: string | null = null;
+let geminiInitializationPromise: Promise<GoogleGenAI> | null = null;
 
-if (apiKey) {
-  try {
-    ai = new GoogleGenAI({ apiKey });
-  } catch (e: any) {
-    console.error("Gemini AI initialization error:", e);
-    geminiError = `Gemini AIの初期化に失敗しました。エラー: ${e.message}`;
-  }
-} else {
-  geminiError = "Gemini APIキーが設定されていません。AI機能を使用するには、'API_KEY'環境変数を設定してください。";
-  console.error(geminiError);
-}
+export const initializeGemini = (): Promise<GoogleGenAI> => {
+    if (geminiInitializationPromise) {
+        return geminiInitializationPromise;
+    }
+
+    geminiInitializationPromise = (async () => {
+        try {
+            const config = await getConfig();
+            if (!config.apiKey) {
+                throw new Error("Gemini APIキーが設定ファイルに見つかりません。");
+            }
+            ai = new GoogleGenAI({ apiKey: config.apiKey });
+            return ai;
+        } catch (e: any) {
+            console.error("Gemini AI initialization error:", e);
+            throw new Error(e.message || "Gemini AIの初期化に失敗しました。");
+        }
+    })();
+    return geminiInitializationPromise;
+};
+
 
 /**
  * 学生の進捗サマリーを生成します。
@@ -25,23 +34,18 @@ if (apiKey) {
  * @returns サマリー文字列。
  */
 export async function generateStudentProgressSummary(student: User, courseTitle: string): Promise<string> {
-    if (!ai || geminiError) {
-        return Promise.reject(new Error(geminiError || "Gemini AIは利用できません。"));
-    }
-    
     const prompt = `学生「${student.name}」のコース「${courseTitle}」における進捗について、簡潔で励みになるサマリーを生成してください。最近の活動に触れ、改善点を1つ提案してください。100ワード未満でお願いします。`;
 
     try {
-        // テキスト生成には ai.models.generateContent を使用します
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash", // 基本的なテキストタスクモデル
+        const localAi = await initializeGemini();
+        const response = await localAi.models.generateContent({
+            model: "gemini-2.5-flash",
             contents: prompt,
         });
-
-        // response.text を使用して生成されたテキストに直接アクセスし、フォールバックも用意します
         return response.text ?? "現時点ではAIサマリーを生成できませんでした。";
     } catch (error) {
         console.error("Gemini APIでのサマリー生成エラー:", error);
-        return Promise.reject(new Error("現在サマリーを生成できません。後でもう一度お試しください。"));
+        // Rethrow a more user-friendly error
+        throw new Error("現在サマリーを生成できません。後でもう一度お試しください。");
     }
 }

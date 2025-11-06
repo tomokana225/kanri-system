@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { auth, createUserProfile } from '../services/firebase';
+import { initializeFirebase, createUserProfile } from '../services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import Alert from './Alert';
 import { User } from '../types';
@@ -16,13 +16,8 @@ const Login: React.FC = () => {
     setError('');
     setLoading(true);
 
-    if (!auth) {
-      setError("認証サービスが利用できません。Firebaseの設定を確認してください。");
-      setLoading(false);
-      return;
-    }
-
     try {
+      const { auth } = await initializeFirebase();
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {

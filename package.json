@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && tsc -p tsconfig.functions.json",
+    "build": "tsc && vite build && tsc -p tsconfig.functions.json --outdir dist",
     "preview": "vite preview"
   },
   "dependencies": {
