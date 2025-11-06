@@ -14,6 +14,13 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (!auth) {
+      setError("Authentication service is not available. Please check your Firebase configuration.");
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
