@@ -13,6 +13,7 @@ import {
     addDoc,
     updateDoc,
     deleteDoc,
+    orderBy,
 } from 'firebase/firestore';
 import { AppConfig, getConfig } from './config';
 import { User, Course, Booking, Notification } from '../types';
@@ -151,6 +152,19 @@ export async function deleteCourse(courseId: string): Promise<void> {
 
 // --- Booking Management ---
 
+export async function getAllBookings(): Promise<Booking[]> {
+    const { db } = await initializeFirebase();
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(bookingsRef, orderBy('startTime', 'desc'));
+    const querySnapshot = await getDocs(q);
+
+    const bookings: Booking[] = [];
+    querySnapshot.forEach((doc) => {
+        bookings.push({ id: doc.id, ...doc.data() } as Booking);
+    });
+    return bookings;
+}
+
 export async function getTeacherBookings(teacherId: string): Promise<Booking[]> {
     const { db } = await initializeFirebase();
     const bookingsRef = collection(db, 'bookings');
@@ -183,6 +197,13 @@ export async function createBooking(bookingData: Omit<Booking, 'id'>): Promise<v
     const bookingsRef = collection(db, 'bookings');
     await addDoc(bookingsRef, bookingData);
 }
+
+export async function updateBooking(bookingId: string, bookingData: Partial<Omit<Booking, 'id'>>): Promise<void> {
+    const { db } = await initializeFirebase();
+    const bookingRef = doc(db, 'bookings', bookingId);
+    await updateDoc(bookingRef, bookingData);
+}
+
 
 // --- Notification Management ---
 
