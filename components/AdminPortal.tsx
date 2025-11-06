@@ -50,7 +50,7 @@ const AdminPortal: React.FC = () => {
     const handleCreateUser = async (newUser: Omit<User, 'id'>) => {
         // Creating Firebase Auth users from the client is not recommended without Admin SDK.
         // This would typically be a call to a serverless function.
-        alert("ユーザー作成機能は現在シミュレートされています。完全な実装にはFirebase Admin SDKが必要です。");
+        alert(`ユーザー「${newUser.name}」の作成機能は現在シミュレートされています。完全な実装にはFirebase Admin SDKが必要です。`);
         setIsUserModalOpen(false);
     };
     
@@ -103,6 +103,8 @@ const AdminPortal: React.FC = () => {
             }
         }
     };
+
+    const teacherMap = new Map(users.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
 
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
 
@@ -159,7 +161,7 @@ const AdminPortal: React.FC = () => {
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コース名</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">担当教師 ID</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">担当教師</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生徒数</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
                             </tr>
@@ -168,7 +170,7 @@ const AdminPortal: React.FC = () => {
                             {courses.map(course => (
                                 <tr key={course.id}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{course.title}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.teacherId}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{teacherMap.get(course.teacherId) || course.teacherId}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.studentIds.length}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                         <button onClick={() => setEditingCourse(course)} className="text-indigo-600 hover:text-indigo-900">編集</button>
@@ -186,6 +188,7 @@ const AdminPortal: React.FC = () => {
             {editingCourse && (
               <CourseEditModal
                 course={editingCourse.id ? editingCourse : null}
+                users={users}
                 onClose={() => setEditingCourse(null)}
                 onSave={handleSaveCourse}
               />
