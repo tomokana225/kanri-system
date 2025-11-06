@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { generateStudentProgressSummary } from '../services/geminiService';
+import { generateStudentProgressSummary, geminiError } from '../services/geminiService';
 import Spinner from './Spinner';
 import Alert from './Alert';
 
@@ -22,6 +22,10 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
   ];
 
   const handleGenerateSummary = async (courseTitle: string) => {
+    if (geminiError) {
+      setError(geminiError);
+      return;
+    }
     setLoadingSummary(true);
     setSelectedCourse(courseTitle);
     setSummary('');
@@ -49,8 +53,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
                 <span className="text-gray-700 mb-2 sm:mb-0">{course.title}</span>
                 <button 
                   onClick={() => handleGenerateSummary(course.title)}
-                  disabled={loadingSummary}
-                  className="px-3 py-1 text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:bg-blue-300 w-full sm:w-auto"
+                  disabled={loadingSummary || !!geminiError}
+                  className="px-3 py-1 text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed w-full sm:w-auto"
+                  title={geminiError || "Generate an AI-powered summary of your progress"}
                 >
                   {loadingSummary && selectedCourse === course.title ? 'Generating...' : 'Get AI Summary'}
                 </button>
@@ -60,15 +65,19 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
         </div>
         <div className="p-6 bg-white rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">AI-Powered Progress Summary</h2>
+          {geminiError && <Alert message={geminiError} type="warning" />}
           {error && <Alert message={error} type="error" />}
+          
           {loadingSummary && <div className="flex justify-center items-center h-24"><Spinner /></div>}
+          
           {summary && !loadingSummary && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <h3 className="font-semibold text-blue-800 mb-2">Summary for {selectedCourse}</h3>
               <p className="text-gray-800 whitespace-pre-wrap">{summary}</p>
             </div>
           )}
-          {!summary && !loadingSummary && (
+          
+          {!summary && !loadingSummary && !geminiError && (
             <p className="text-gray-500 text-center pt-8">Click "Get AI Summary" on a course to see your progress overview.</p>
           )}
         </div>
