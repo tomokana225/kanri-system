@@ -89,7 +89,7 @@ const App: React.FC = () => {
               <p>1. Cloudflare Pagesのプロジェクト設定に移動します。</p>
               <p>2. 「環境変数」セクションで、以下の変数がすべて設定されていることを確認してください。</p>
               <pre className="mt-3 p-3 bg-gray-200 rounded text-xs overflow-x-auto">
-                {`API_KEY (for Gemini AI)\nFIREBASE_API_KEY\nFIREBASE_AUTH_DOMAIN\nFIREBASE_PROJECT_ID\nFIREBASE_STORAGE_BUCKET\nFIREBASE_MESSAGING_SENDER_ID\nFIREBASE_APP_ID\nFIREBASE_MEASUREMENT_ID`}
+                {`FIREBASE_API_KEY\nFIREBASE_AUTH_DOMAIN\nFIREBASE_PROJECT_ID\nFIREBASE_STORAGE_BUCKET\nFIREBASE_MESSAGING_SENDER_ID\nFIREBASE_APP_ID\nFIREBASE_MEASUREMENT_ID`}
               </pre>
               <p className="mt-3">3. 変数を追加または更新した後、アプリケーションを再デプロイしてください。</p>
             </div>

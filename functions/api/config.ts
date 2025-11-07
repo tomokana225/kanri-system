@@ -1,6 +1,5 @@
 
 interface Env {
-  API_KEY: string;
   FIREBASE_API_KEY: string;
   FIREBASE_AUTH_DOMAIN: string;
   FIREBASE_PROJECT_ID: string;
@@ -18,7 +17,6 @@ export const onRequest: (context: PagesFunctionContext) => Response | Promise<Re
     const { env } = context;
 
     const requiredEnvVars: (keyof Env)[] = [
-        'API_KEY',
         'FIREBASE_API_KEY',
         'FIREBASE_AUTH_DOMAIN',
         'FIREBASE_PROJECT_ID',
@@ -43,7 +41,6 @@ export const onRequest: (context: PagesFunctionContext) => Response | Promise<Re
 
 
     const config = {
-        apiKey: env.API_KEY,
         firebase: {
             apiKey: env.FIREBASE_API_KEY,
             authDomain: env.FIREBASE_AUTH_DOMAIN,

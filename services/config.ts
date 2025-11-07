@@ -1,6 +1,5 @@
 
 export interface AppConfig {
-    apiKey: string;
     firebase: {
         apiKey: string;
         authDomain: string;
@@ -33,10 +32,7 @@ export const getConfig = (): Promise<AppConfig> => {
         // Firebaseの設定が7つすべて存在し、かつ空文字列でないことを確認
         const isFirebaseConfigured = Object.values(firebaseConfig).length === 7 && Object.values(firebaseConfig).every(val => typeof val === 'string' && val.length > 0);
 
-        // Gemini APIキーも空文字列でないことを確認
-        const isGeminiConfigured = config.apiKey && typeof config.apiKey === 'string' && config.apiKey.length > 0;
-
-        if (!isFirebaseConfigured || !isGeminiConfigured) {
+        if (!isFirebaseConfigured) {
              throw new Error("設定情報が不完全です。Cloudflare Pagesの環境変数がすべて設定されているか確認してください。");
         }
         return config as AppConfig;
