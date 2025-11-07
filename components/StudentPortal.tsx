@@ -1,112 +1,112 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Course, Booking } from '../types';
-import { getStudentCourses, getStudentBookings } from '../services/firebase';
+import { getStudentBookings, getAllCourses } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import BookingModal from './BookingModal';
+import { CalendarIcon, CourseIcon, AddIcon } from './icons';
 
 interface StudentPortalProps {
   user: User;
 }
 
 const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
-  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(true);
-  const [coursesError, setCoursesError] = useState('');
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState(true);
-  const [bookingsError, setBookingsError] = useState('');
-
-  const fetchStudentData = useCallback(async () => {
-    setLoadingCourses(true);
-    setLoadingBookings(true);
-    setCoursesError('');
-    setBookingsError('');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
-      const [courses, studentBookings] = await Promise.all([
-        getStudentCourses(user.id),
-        getStudentBookings(user.id)
+      const [studentBookings, allCourses] = await Promise.all([
+        getStudentBookings(user.id),
+        getAllCourses()
       ]);
-      setEnrolledCourses(courses);
-      setBookings(studentBookings.filter(b => b.startTime.toDate() > new Date()));
+      setBookings(studentBookings);
+      setCourses(allCourses);
     } catch (e: any) {
-      console.error('学生データの取得に失敗しました:', e);
-      const code = e.code ? ` (コード: ${e.code})` : '';
-      setCoursesError(`登録コースの取得に失敗しました。${code}`);
-      setBookingsError(`予約の取得に失敗しました。${code}`);
+      console.error("学生ポータルデータの取得に失敗:", e);
+      setError('データの読み込みに失敗しました。');
     } finally {
-      setLoadingCourses(false);
-      setLoadingBookings(false);
+      setLoading(false);
     }
   }, [user.id]);
 
   useEffect(() => {
-    fetchStudentData();
-  }, [fetchStudentData]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleBookingSuccess = () => {
-    fetchStudentData();
-  };
+  if (loading) {
+    return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+  }
+  if (error) {
+    return <Alert message={error} type="error" />;
+  }
+
+  const upcomingBookings = bookings
+    .filter(b => b.startTime.toDate() > new Date())
+    .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-800">学生ダッシュボード</h1>
-
-      <div className="p-6 bg-white rounded-lg shadow text-center border-t-4 border-blue-500">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-800">新しいクラスを予約する</h2>
-        <p className="text-gray-600 mb-4 max-w-2xl mx-auto">カレンダーから好きなコースと時間を選んで、次の学習計画を立てましょう。</p>
-        <button
-          onClick={() => setIsBookingModalOpen(true)}
-          className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 shadow-lg"
-        >
-          クラスを予約
-        </button>
+    <div className="space-y-8">
+      <div>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">ダッシュボード</h2>
+            <button
+                onClick={() => setIsBookingModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+                <AddIcon /> 新しい予約をする
+            </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-white rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><CourseIcon />受講可能なコース</h3>
+              <p className="text-3xl font-bold text-green-600">{courses.length}</p>
+            </div>
+            <div className="p-6 bg-white rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2"><CalendarIcon />今後の予約</h3>
+              <p className="text-3xl font-bold text-indigo-600">{upcomingBookings.length}</p>
+            </div>
+        </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">私のコース</h2>
-          {loadingCourses ? (
-            <div className="flex justify-center items-center h-24"><Spinner /></div>
-          ) : coursesError ? (
-            <Alert message={coursesError} type="error" />
-          ) : enrolledCourses.length === 0 ? (
-            <p className="text-gray-500 text-center pt-8">現在登録されているコースはありません。</p>
-          ) : (
-            <ul className="space-y-3">
-              {enrolledCourses.map(course => (
-                <li key={course.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-gray-50 rounded-md">
-                  <span className="text-gray-700 mb-2 sm:mb-0">{course.title}</span>
+      
+      <div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">今後の予約一覧</h2>
+        {upcomingBookings.length > 0 ? (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <ul className="divide-y divide-gray-200">
+              {upcomingBookings.map(booking => (
+                <li key={booking.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-blue-600">{booking.courseTitle}</p>
+                      <p className="text-sm text-gray-600">{booking.startTime.toDate().toLocaleString('ja-JP')}</p>
+                    </div>
+                    <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">{booking.status}</span>
+                  </div>
                 </li>
               ))}
             </ul>
-          )}
-        </div>
-
-        <div className="p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">今後の予約</h2>
-          {loadingBookings ? (
-            <div className="flex justify-center items-center h-24"><Spinner /></div>
-          ) : bookingsError ? (
-            <Alert message={bookingsError} type="error" />
-          ) : bookings.length === 0 ? (
-            <p className="text-gray-500 text-center pt-8">今後の予約はありません。</p>
-          ) : (
-            <ul className="space-y-3">
-              {bookings.map(booking => (
-                <li key={booking.id} className="p-3 bg-gray-50 rounded-md">
-                  <p className="font-semibold text-gray-800">{booking.courseTitle}</p>
-                  <p className="text-sm text-gray-500">
-                    {booking.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center p-8 bg-white rounded-lg shadow">
+            <p className="text-gray-500">今後の予約はありません。</p>
+          </div>
+        )}
       </div>
-      {isBookingModalOpen && <BookingModal user={user} onClose={() => setIsBookingModalOpen(false)} onBookingSuccess={handleBookingSuccess} />}
+
+      {isBookingModalOpen && (
+        <BookingModal 
+            user={user} 
+            onClose={() => setIsBookingModalOpen(false)} 
+            onBookingSuccess={fetchData} 
+        />
+      )}
     </div>
   );
 };

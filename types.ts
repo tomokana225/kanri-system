@@ -7,6 +7,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  enrolledCourseIds?: string[];
+  assignedCourseIds?: string[];
 }
 
 export interface Course {
@@ -19,7 +21,7 @@ export interface Course {
 }
 
 export interface Booking {
-  id:string;
+  id: string;
   studentId: string;
   studentName: string;
   teacherId: string;
@@ -27,7 +29,8 @@ export interface Booking {
   courseTitle: string;
   startTime: Timestamp;
   endTime: Timestamp;
-  status: string; // e.g., 'confirmed', 'cancelled'
+  status: 'confirmed' | 'cancelled' | 'pending';
+  availabilityId?: string;
 }
 
 export interface Availability {
@@ -40,9 +43,11 @@ export interface Availability {
 }
 
 export interface Notification {
-    id: string;
-    userId: string;
-    message: string;
-    read: boolean;
-    createdAt: Timestamp;
+  id: string;
+  userId: string;
+  message: string;
+  read: boolean;
+  createdAt: Timestamp;
 }
+
+export interface BookingRequest extends Booking {}

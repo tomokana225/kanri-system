@@ -1,138 +1,124 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Course, Booking, Availability } from '../types';
-import { getTeacherCourses, getTeacherBookings, getTeacherAvailabilities, deleteAvailability } from '../services/firebase';
+import { User, Booking, BookingRequest } from '../types';
+import { getTeacherBookings, getBookingRequests, updateBookingStatus } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import TeacherAvailabilityModal from './TeacherAvailabilityModal';
+import BookingRequestModal from './BookingRequestModal';
+import { CalendarIcon, ClockIcon } from './icons';
 
 interface TeacherPortalProps {
   user: User;
 }
 
 const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
-    const [courses, setCourses] = useState<Course[]>([]);
-    const [bookings, setBookings] = useState<Booking[]>([]);
-    const [availabilities, setAvailabilities] = useState<Availability[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<BookingRequest | null>(null);
 
-    const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const [teacherCourses, teacherBookings, teacherAvailabilities] = await Promise.all([
-                getTeacherCourses(user.id),
-                getTeacherBookings(user.id),
-                getTeacherAvailabilities(user.id),
-            ]);
-            setCourses(teacherCourses);
-            setBookings(teacherBookings);
-            setAvailabilities(teacherAvailabilities);
-        } catch (e: any) {
-            console.error("教師データの取得に失敗:", e);
-            const code = e.code ? ` (コード: ${e.code})` : '';
-            setError(`ダッシュボードデータの読み込みに失敗しました。${code}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [user.id]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-    
-    const handleDeleteAvailability = async (availabilityId: string) => {
-        if (window.confirm('この空き時間を削除しますか？')) {
-            try {
-                await deleteAvailability(availabilityId);
-                fetchData(); // Refresh data
-            } catch (e: any) {
-                console.error("空き時間の削除に失敗:", e);
-                setError('空き時間の削除に失敗しました。');
-            }
-        }
-    };
-
-    if (loading) {
-        return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [teacherBookings, requests] = await Promise.all([
+        getTeacherBookings(user.id),
+        getBookingRequests(user.id)
+      ]);
+      setBookings(teacherBookings.filter(b => b.status === 'confirmed'));
+      setBookingRequests(requests);
+    } catch (e: any) {
+      console.error("教師ポータルデータの取得に失敗:", e);
+      setError('データの読み込みに失敗しました。');
+    } finally {
+      setLoading(false);
     }
+  }, [user.id]);
 
-    if (error) {
-        return <Alert message={error} type="error" />;
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  
+  const handleRequestAction = async (bookingId: string, action: 'confirm' | 'decline') => {
+    try {
+      const status = action === 'confirm' ? 'confirmed' : 'cancelled';
+      await updateBookingStatus(bookingId, status);
+      fetchData(); 
+      setSelectedRequest(null);
+    } catch (e) {
+      setError('リクエストの処理に失敗しました。');
     }
+  };
 
-    return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-800">教師ダッシュボード</h1>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="p-6 bg-white rounded-lg shadow">
-                    <h2 className="text-xl font-semibold mb-4">私のコース</h2>
-                    {courses.length > 0 ? (
-                        <ul className="space-y-3">
-                            {courses.map(course => (
-                                <li key={course.id} className="p-3 bg-gray-50 rounded-md">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-gray-800 font-semibold">{course.title}</span>
-                                        <span className="text-sm text-gray-500">{course.studentIds.length}人の生徒</span>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-gray-500">担当しているコースはありません。</p>
-                    )}
-                </div>
+  if (loading) {
+    return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+  }
+  if (error) {
+    return <Alert message={error} type="error" />;
+  }
+  
+  const upcomingBookings = bookings
+    .filter(b => b.startTime.toDate() > new Date())
+    .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 
-                <div className="p-6 bg-white rounded-lg shadow">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">空き時間管理</h2>
-                        <button
-                            onClick={() => setIsAvailabilityModalOpen(true)}
-                            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                        >
-                            空き時間を登録
-                        </button>
-                    </div>
-                     {availabilities.length > 0 ? (
-                        <ul className="space-y-2 max-h-60 overflow-y-auto">
-                            {availabilities.map(avail => (
-                                <li key={avail.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition">
-                                    <span className="text-sm font-medium text-gray-800">
-                                        {avail.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <button onClick={() => handleDeleteAvailability(avail.id)} className="text-xs text-red-500 hover:text-red-700">削除</button>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                         <p className="text-gray-500 text-center pt-8">登録済みの空き時間はありません。</p>
-                    )}
-                </div>
-
-                <div className="p-6 bg-white rounded-lg shadow">
-                    <h2 className="text-xl font-semibold mb-4">今後の予約</h2>
-                    {bookings.length > 0 ? (
-                        <ul className="space-y-2 max-h-60 overflow-y-auto">
-                            {bookings.map(app => (
-                                <li key={app.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition">
-                                    <span className="text-gray-700">{app.studentName}</span>
-                                    <span className="text-sm font-medium text-blue-600">
-                                        {app.startTime.toDate().toLocaleString('ja-JP', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                         <p className="text-gray-500 text-center pt-8">今後の予約はありません。</p>
-                    )}
-                </div>
-            </div>
-            {isAvailabilityModalOpen && <TeacherAvailabilityModal user={user} onClose={() => setIsAvailabilityModalOpen(false)} onSaveSuccess={fetchData} />}
+  return (
+    <div className="space-y-8">
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">教師ダッシュボード</h2>
+          <button
+            onClick={() => setIsAvailabilityModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            <ClockIcon /> 空き時間を登録
+          </button>
         </div>
-    );
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2"><CalendarIcon />今後のスケジュール</h2>
+        {upcomingBookings.length > 0 ? (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <ul className="divide-y divide-gray-200">
+              {upcomingBookings.map(booking => (
+                <li key={booking.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-blue-600">{booking.courseTitle}</p>
+                      <p className="text-sm text-gray-600">生徒: {booking.studentName}</p>
+                      <p className="text-sm text-gray-600">{booking.startTime.toDate().toLocaleString('ja-JP')}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="text-center p-8 bg-white rounded-lg shadow">
+            <p className="text-gray-500">今後の予約はありません。</p>
+          </div>
+        )}
+      </div>
+
+      {isAvailabilityModalOpen && (
+        <TeacherAvailabilityModal 
+            user={user} 
+            onClose={() => setIsAvailabilityModalOpen(false)} 
+            onSaveSuccess={fetchData}
+        />
+      )}
+      
+      {selectedRequest && (
+        <BookingRequestModal 
+            request={selectedRequest}
+            onClose={() => setSelectedRequest(null)}
+            onAction={handleRequestAction}
+        />
+      )}
+    </div>
+  );
 };
 
 export default TeacherPortal;
