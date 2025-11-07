@@ -30,7 +30,8 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
       try {
         const [fetchedCourses, fetchedUsers] = await Promise.all([getAllCourses(), getAllUsers()]);
         setCourses(fetchedCourses);
-        const teacherMap = new Map(fetchedUsers.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
+        // FIX: Explicitly type `teacherMap` to resolve TypeScript error.
+        const teacherMap: Map<string, string> = new Map(fetchedUsers.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
         setTeachers(teacherMap);
       } catch (e: any) {
         const code = e.code ? ` (コード: ${e.code})` : '';

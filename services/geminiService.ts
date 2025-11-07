@@ -1,30 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { User } from "../types";
-import { getConfig } from "./config";
 
-let geminiInitializationPromise: Promise<GoogleGenAI> | null = null;
-
-export const initializeGemini = (): Promise<GoogleGenAI> => {
-    if (geminiInitializationPromise) {
-        return geminiInitializationPromise;
-    }
-
-    geminiInitializationPromise = (async () => {
-        try {
-            const config = await getConfig();
-            if (!config.apiKey) {
-                throw new Error("Gemini APIキーが設定ファイルに見つかりません。");
-            }
-            const ai = new GoogleGenAI({ apiKey: config.apiKey });
-            return ai;
-        } catch (e: any) {
-            console.error("Gemini AI initialization error:", e);
-            geminiInitializationPromise = null;
-            throw new Error(e.message || "Gemini AIの初期化に失敗しました。");
-        }
-    })();
-    return geminiInitializationPromise;
-};
+// Per guidelines, API key must come from process.env.API_KEY.
+// The key is assumed to be available in the execution context.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 
 /**
@@ -37,12 +16,12 @@ export async function generateStudentProgressSummary(student: User, courseTitle:
     const prompt = `学生「${student.name}」のコース「${courseTitle}」における進捗について、簡潔で励みになるサマリーを生成してください。最近の活動に触れ、改善点を1つ提案してください。100ワード未満でお願いします。`;
 
     try {
-        const localAi = await initializeGemini();
-        const response = await localAi.models.generateContent({
+        const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
         });
-        return response.text || "現時点ではAIサマリーを生成できませんでした。";
+        // Per guidelines, directly access .text property.
+        return response.text;
     } catch (error: any) {
         console.error("Gemini APIでのサマリー生成エラー:", error);
         const detail = error.message ? `: ${error.message}` : '';
@@ -61,8 +40,7 @@ export async function generateCourseDetails(topic: string): Promise<{ title: str
 `;
 
     try {
-        const localAi = await initializeGemini();
-        const response = await localAi.models.generateContent({
+        const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
@@ -84,7 +62,8 @@ export async function generateCourseDetails(topic: string): Promise<{ title: str
             },
         });
 
-        const jsonText = response.text?.trim();
+        // Per guidelines, directly access .text property.
+        const jsonText = response.text.trim();
         if (!jsonText) {
             throw new Error("AIからの応答が空です。");
         }
@@ -111,12 +90,12 @@ export async function generateLessonPlan(courseTitle: string): Promise<string> {
     const prompt = `あなたは経験豊富な教師です。コース「${courseTitle}」の次の授業で使える、創造的で実践的なレッスン案を3つ提案してください。各提案は簡潔に、箇条書きで記述してください。`;
 
     try {
-        const localAi = await initializeGemini();
-        const response = await localAi.models.generateContent({
+        const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
         });
-        return response.text || "現時点ではレッスン案を生成できませんでした。";
+        // Per guidelines, directly access .text property.
+        return response.text;
     } catch (error: any) {
         console.error("Gemini APIでのレッスン案生成エラー:", error);
         const detail = error.message ? `: ${error.message}` : '';
