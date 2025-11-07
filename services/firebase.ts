@@ -16,6 +16,7 @@ import {
   Firestore,
   Timestamp,
   orderBy,
+  runTransaction,
 } from 'firebase/firestore';
 import { User, Course, Booking, Availability, Notification } from '../types';
 import { getConfig } from './config';
@@ -155,23 +156,34 @@ export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> 
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
-// Create a booking and update the availability slot to 'booked'
+// Create a booking and update the availability slot to 'booked' using a transaction
 export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
     await initializeFirebase();
-    const batch = writeBatch(db);
+    
+    try {
+        await runTransaction(db, async (transaction) => {
+            const availabilityRef = doc(db, 'availabilities', availabilityId);
+            const availabilitySnap = await transaction.get(availabilityRef);
 
-    // 1. Create the new booking document
-    const bookingRef = doc(collection(db, 'bookings'));
-    batch.set(bookingRef, bookingData);
-    
-    // 2. Mark the availability slot as booked
-    const availabilityRef = doc(db, 'availabilities', availabilityId);
-    batch.update(availabilityRef, { 
-      status: 'booked',
-      studentId: bookingData.studentId 
-    });
-    
-    await batch.commit();
+            if (!availabilitySnap.exists() || availabilitySnap.data().status !== 'available') {
+                throw new Error("This time slot is no longer available. Please select another time.");
+            }
+
+            // 1. Mark the availability slot as booked
+            transaction.update(availabilityRef, { 
+                status: 'booked',
+                studentId: bookingData.studentId 
+            });
+            
+            // 2. Create the new booking document
+            const bookingRef = doc(collection(db, 'bookings'));
+            transaction.set(bookingRef, bookingData);
+        });
+    } catch (e) {
+        console.error("Transaction failed: ", e);
+        // Re-throw the error to be caught by the UI component
+        throw e;
+    }
 };
 
 // Create a manual booking (by admin, does not consume availability)

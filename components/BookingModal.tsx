@@ -91,7 +91,11 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
         setStep(4);
     } catch (e: any) {
         const code = e.code ? ` (コード: ${e.code})` : '';
-        setError(`予約の作成に失敗しました。${e.message}${code}`);
+        if (e.message && e.message.includes("no longer available")) {
+            setError("申し訳ありませんが、この時間枠はたった今予約されました。別の時間を選択してください。");
+        } else {
+            setError(`予約の作成に失敗しました。${e.message}${code}`);
+        }
         setStep(2); // Go back to time selection on failure
     } finally {
         setLoading(false);
