@@ -13,7 +13,8 @@ import {
     writeBatch,
     deleteDoc,
     updateDoc,
-    runTransaction
+    runTransaction,
+    orderBy
 } from 'firebase/firestore';
 import { getConfig } from './config';
 import { User, Course, Booking, Notification, Availability } from '../types';
@@ -146,19 +147,33 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
 };
 
 export const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
-    const q = query(collection(db, "bookings"), where("studentId", "==", studentId), where("startTime", ">=", Timestamp.now()));
+    const q = query(
+        collection(db, "bookings"), 
+        where("studentId", "==", studentId), 
+        where("startTime", ">=", Timestamp.now()),
+        orderBy("startTime", "asc")
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
 export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> => {
-    const q = query(collection(db, "bookings"), where("teacherId", "==", teacherId), where("startTime", ">=", Timestamp.now()));
+    const q = query(
+        collection(db, "bookings"), 
+        where("teacherId", "==", teacherId), 
+        where("startTime", ">=", Timestamp.now()),
+        orderBy("startTime", "asc")
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
 export const getAllBookings = async (): Promise<Booking[]> => {
-    const q = query(collection(db, "bookings"), where("startTime", ">=", Timestamp.now()));
+    const q = query(
+        collection(db, "bookings"), 
+        where("startTime", ">=", Timestamp.now()),
+        orderBy("startTime", "asc")
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
@@ -175,13 +190,22 @@ export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>
 };
 
 export const getTeacherAvailabilities = async (teacherId: string): Promise<Availability[]> => {
-    const q = query(collection(db, "availabilities"), where("teacherId", "==", teacherId), where("startTime", ">", Timestamp.now()));
+    const q = query(
+        collection(db, "availabilities"), 
+        where("teacherId", "==", teacherId), 
+        where("startTime", ">", Timestamp.now()),
+        orderBy("startTime", "asc")
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
 };
 
 export const getAllAvailabilities = async (): Promise<Availability[]> => {
-    const q = query(collection(db, "availabilities"), where("startTime", ">", Timestamp.now()));
+    const q = query(
+        collection(db, "availabilities"), 
+        where("startTime", ">", Timestamp.now()),
+        orderBy("startTime", "asc")
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Availability));
 };
