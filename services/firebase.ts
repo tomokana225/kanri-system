@@ -14,9 +14,12 @@ import {
     updateDoc,
     deleteDoc,
     orderBy,
+    writeBatch,
+    Timestamp,
+    runTransaction,
 } from 'firebase/firestore';
 import { AppConfig, getConfig } from './config';
-import { User, Course, Booking, Notification } from '../types';
+import { User, Course, Booking, Notification, Availability } from '../types';
 
 let firebaseApp: FirebaseApp;
 let auth: Auth;
@@ -213,11 +216,21 @@ export async function getStudentBookings(studentId: string): Promise<Booking[]> 
     return bookings.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 }
 
-export async function createBooking(bookingData: Omit<Booking, 'id'>): Promise<void> {
+export async function createBooking(bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> {
     const { db } = await initializeFirebase();
-    const bookingsRef = collection(db, 'bookings');
-    await addDoc(bookingsRef, bookingData);
+    const availabilityRef = doc(db, 'availabilities', availabilityId);
+    const newBookingRef = doc(collection(db, 'bookings'));
+
+    await runTransaction(db, async (transaction) => {
+        const availabilityDoc = await transaction.get(availabilityRef);
+        if (!availabilityDoc.exists()) {
+            throw new Error("この時間はすでに予約されているか、利用できなくなりました。");
+        }
+        transaction.set(newBookingRef, bookingData);
+        transaction.delete(availabilityRef);
+    });
 }
+
 
 export async function updateBooking(bookingId: string, bookingData: Partial<Omit<Booking, 'id'>>): Promise<void> {
     const { db } = await initializeFirebase();
@@ -225,6 +238,44 @@ export async function updateBooking(bookingId: string, bookingData: Partial<Omit
     await updateDoc(bookingRef, bookingData);
 }
 
+
+// --- Availability Management ---
+
+export async function getTeacherAvailabilities(teacherId: string): Promise<Availability[]> {
+    const { db } = await initializeFirebase();
+    const availabilitiesRef = collection(db, 'availabilities');
+    const q = query(
+        availabilitiesRef,
+        where('teacherId', '==', teacherId),
+        where('startTime', '>=', Timestamp.now()),
+        orderBy('startTime', 'asc')
+    );
+    const querySnapshot = await getDocs(q);
+
+    const availabilities: Availability[] = [];
+    querySnapshot.forEach((doc) => {
+        availabilities.push({ id: doc.id, ...doc.data() } as Availability);
+    });
+    return availabilities;
+}
+
+export async function addAvailabilities(availabilitiesData: Omit<Availability, 'id'>[]): Promise<void> {
+    const { db } = await initializeFirebase();
+    const batch = writeBatch(db);
+    const availabilitiesRef = collection(db, 'availabilities');
+
+    availabilitiesData.forEach(avail => {
+        const docRef = doc(availabilitiesRef);
+        batch.set(docRef, avail);
+    });
+
+    await batch.commit();
+}
+
+export async function deleteAvailability(availabilityId: string): Promise<void> {
+    const { db } = await initializeFirebase();
+    await deleteDoc(doc(db, 'availabilities', availabilityId));
+}
 
 // --- Notification Management ---
 

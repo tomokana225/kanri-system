@@ -37,3 +37,10 @@ export interface Notification {
   read: boolean;
   createdAt: Timestamp;
 }
+
+export interface Availability {
+  id: string;
+  teacherId: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+}

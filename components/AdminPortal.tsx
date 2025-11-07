@@ -70,7 +70,7 @@ const CourseTable = memo(({ courses, userMap, onEdit, onDelete }: { courses: Cou
                         <tr key={course.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{course.title || 'N/A'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(course.teacherId) || '割り当てなし'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(course.studentIds || []).length}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{Array.isArray(course.studentIds) ? course.studentIds.length : 0}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                 <button onClick={() => onEdit(course)} className="text-indigo-600 hover:text-indigo-900">編集</button>
                                 <button onClick={() => onDelete(course.id)} className="text-red-600 hover:text-red-900">削除</button>
@@ -274,7 +274,11 @@ const AdminPortal: React.FC = () => {
     
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
 
-    const userMap = new Map(users.filter(u => u && u.id).map(u => [u.id, u.name]));
+    const userMap = new Map(
+        users
+            .filter(u => u && u.id && typeof u.name === 'string')
+            .map(u => [u.id, u.name])
+    );
 
     return (
         <div className="space-y-8">
