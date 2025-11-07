@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Course } from '../types';
-import { 
-    getAllUsers, 
-    getAllCourses, 
-    updateUserProfile, 
-    createCourse, 
-    updateCourse, 
-    deleteCourse,
-    createUserProfile
-} from '../services/firebase';
+import { getAllUsers, getAllCourses, updateUser, deleteUser, createCourse, updateCourse, deleteCourse } from '../services/firebase';
 import { generateCourseDetails } from '../services/geminiService';
 import Spinner from './Spinner';
 import Alert from './Alert';
@@ -16,173 +8,258 @@ import UserEditModal from './UserEditModal';
 import CreateUserModal from './CreateUserModal';
 import CourseEditModal from './CourseEditModal';
 import AiCourseGenerateModal from './AiCourseGenerateModal';
+import { AddIcon, AiIcon, EditIcon, DeleteIcon } from './icons';
+
+type ActiveTab = 'users' | 'courses';
 
 const AdminPortal: React.FC = () => {
-    const [users, setUsers] = useState<User[]>([]);
-    const [courses, setCourses] = useState<Course[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [view, setView] = useState<'users' | 'courses'>('users');
-    
-    // Modals state
-    const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [isCreatingUser, setIsCreatingUser] = useState(false);
-    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-    const [isCreatingCourse, setIsCreatingCourse] = useState(false);
-    const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('users');
+  const [users, setUsers] = useState<User[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const [fetchedUsers, fetchedCourses] = await Promise.all([getAllUsers(), getAllCourses()]);
-            setUsers(fetchedUsers);
-            setCourses(fetchedCourses);
-        } catch (e: any) {
-            setError('データの取得に失敗しました。' + (e.message || ''));
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+  // Modal states
+  const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
+  const [isCourseEditModalOpen, setIsCourseEditModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
-    useEffect(() => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [allUsers, allCourses] = await Promise.all([getAllUsers(), getAllCourses()]);
+      setUsers(allUsers);
+      setCourses(allCourses);
+    } catch (e: any) {
+      console.error("管理データの取得に失敗:", e);
+      const code = e.code ? ` (コード: ${e.code})` : '';
+      setError(`データの読み込みに失敗しました。${code}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // User Handlers
+  const handleOpenUserEdit = (user: User) => {
+    setSelectedUser(user);
+    setIsUserEditModalOpen(true);
+  };
+
+  const handleSaveUser = async (uid: string, userData: Partial<Omit<User, 'id'>>) => {
+    try {
+      await updateUser(uid, userData);
+      fetchData(); // Refresh data
+      setIsUserEditModalOpen(false);
+    } catch (err) {
+      console.error("ユーザー更新エラー:", err);
+      throw err; // Re-throw to be caught by modal
+    }
+  };
+  
+  const handleCreateUser = async (newUser: Omit<User, 'id'>) => {
+      // Note: This only creates a Firestore profile. 
+      // A real app would call a cloud function to create the auth user.
+      try {
+        alert("ユーザー作成機能は現在デモ用です。実際のAuthユーザーは作成されません。リストを更新します。");
+        fetchData(); 
+        setIsCreateUserModalOpen(false);
+      } catch (err) {
+        console.error("ユーザー作成エラー:", err);
+        throw err;
+      }
+  };
+
+  const handleDeleteUser = async (uid: string) => {
+    if (window.confirm('このユーザーを本当に削除しますか？この操作は元に戻せません。')) {
+      try {
+        await deleteUser(uid);
         fetchData();
-    }, [fetchData]);
-    
-    // User Handlers
-    const handleSaveUser = async (uid: string, userData: Partial<Omit<User, 'id'>>) => {
-        await updateUserProfile(uid, userData);
-        setEditingUser(null);
+      } catch (err: any) {
+        setError(err.message || 'ユーザーの削除に失敗しました。');
+      }
+    }
+  };
+  
+  // Course Handlers
+  const handleOpenCourseEdit = (course: Course | null) => {
+    setSelectedCourse(course);
+    setIsCourseEditModalOpen(true);
+  };
+
+  const handleSaveCourse = async (courseData: Partial<Omit<Course, 'id'>>, courseId?: string) => {
+     try {
+      if (courseId) {
+        await updateCourse(courseId, courseData);
+      } else {
+        await createCourse(courseData as Omit<Course, 'id'>);
+      }
+      fetchData();
+      setIsCourseEditModalOpen(false);
+    } catch (err) {
+      console.error("コース保存エラー:", err);
+      throw err;
+    }
+  };
+  
+  const handleDeleteCourse = async (courseId: string) => {
+     if (window.confirm('このコースを本当に削除しますか？この操作は元に戻せません。')) {
+      try {
+        await deleteCourse(courseId);
         fetchData();
-    };
+      } catch (err: any) {
+        setError(err.message || 'コースの削除に失敗しました。');
+      }
+    }
+  };
+  
+  const handleAiGenerate = async (topic: string) => {
+      try {
+          const { title, description } = await generateCourseDetails(topic);
+          setSelectedCourse({ title, description, id: '', teacherId: '', studentIds: [] }); // pre-fill modal
+          setIsAiModalOpen(false);
+          setIsCourseEditModalOpen(true);
+      } catch(err) {
+          console.error("AIコース生成エラー:", err);
+          throw err;
+      }
+  };
 
-    const handleCreateUser = async (newUser: Omit<User, 'id'>) => {
-        // This is a simplified version. A real app would use a cloud function to create an auth user.
-        // For this demo, we can't create an auth user, so we'll just add them to Firestore.
-        // They won't be able to log in until they register with the same email.
-        const pseudoUid = `manual-${new Date().getTime()}`;
-        await createUserProfile(pseudoUid, newUser);
-        setIsCreatingUser(false);
-        fetchData();
-    };
 
-    // Course Handlers
-    const handleSaveCourse = async (courseData: Partial<Omit<Course, 'id'>>, courseId?: string) => {
-        if (courseId) {
-            await updateCourse(courseId, courseData);
-        } else {
-            await createCourse(courseData as Omit<Course, 'id'>);
-        }
-        setEditingCourse(null);
-        setIsCreatingCourse(false);
-        fetchData();
-    };
+  if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+  if (error) return <Alert message={error} type="error" />;
 
-    const handleDeleteCourse = async (courseId: string) => {
-        if (window.confirm('このコースを本当に削除しますか？')) {
-            await deleteCourse(courseId);
-            fetchData();
-        }
-    };
-    
-    const handleAiGenerate = async (topic: string) => {
-        const { title, description } = await generateCourseDetails(topic);
-        setIsAiGenerating(false);
-        setIsCreatingCourse(true); // Open the create modal
-        // Pre-fill the form with generated details
-        setEditingCourse({ id: '', title, description, teacherId: '', studentIds: [], teacherName: '' });
-    };
-
-    const renderUsers = () => (
-        <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">ユーザー管理</h2>
-                <button onClick={() => setIsCreatingUser(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">新規ユーザー作成</button>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-gray-50">
-                            <th className="p-3">氏名</th>
-                            <th className="p-3">メールアドレス</th>
-                            <th className="p-3">役割</th>
-                            <th className="p-3">アクション</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map(user => (
-                            <tr key={user.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3">{user.name}</td>
-                                <td className="p-3">{user.email}</td>
-                                <td className="p-3">{user.role}</td>
-                                <td className="p-3">
-                                    <button onClick={() => setEditingUser(user)} className="text-blue-600 hover:underline">編集</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold text-gray-800">管理ダッシュボード</h1>
+      
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+          <button onClick={() => setActiveTab('users')} className={`${activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+            ユーザー管理
+          </button>
+          <button onClick={() => setActiveTab('courses')} className={`${activeTab === 'courses' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+            コース管理
+          </button>
+        </nav>
+      </div>
+      
+      {activeTab === 'users' && (
+        <div className="p-6 bg-white rounded-lg shadow">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">ユーザー一覧</h2>
+            <button onClick={() => setIsCreateUserModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+              <AddIcon />
+              <span>新規ユーザー作成</span>
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">氏名</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">メールアドレス</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">役割</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {users.map(user => (
+                  <tr key={user.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <button onClick={() => handleOpenUserEdit(user)} className="text-blue-600 hover:text-blue-900"><EditIcon /></button>
+                      <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900"><DeleteIcon /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-    );
-    
-    const renderCourses = () => (
-        <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">コース管理</h2>
-                <div className="space-x-2">
-                    <button onClick={() => setIsAiGenerating(true)} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">AIでコース生成</button>
-                    <button onClick={() => { setEditingCourse(null); setIsCreatingCourse(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">新規コース作成</button>
-                </div>
+      )}
+      
+      {activeTab === 'courses' && (
+        <div className="p-6 bg-white rounded-lg shadow">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">コース一覧</h2>
+            <div className="flex gap-2">
+                <button onClick={() => handleOpenCourseEdit(null)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    <AddIcon />
+                    <span>新規コース作成</span>
+                </button>
+                <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                    <AiIcon />
+                    <span>AIでコースを生成</span>
+                </button>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-gray-50">
-                            <th className="p-3">コース名</th>
-                            <th className="p-3">担当教師</th>
-                            <th className="p-3">生徒数</th>
-                            <th className="p-3">アクション</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {courses.map(course => (
-                            <tr key={course.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3 font-medium">{course.title}</td>
-                                <td className="p-3">{course.teacherName}</td>
-                                <td className="p-3">{course.studentIds.length}</td>
-                                <td className="p-3 space-x-4">
-                                    <button onClick={() => { setEditingCourse(course); setIsCreatingCourse(false); }} className="text-blue-600 hover:underline">編集</button>
-                                    <button onClick={() => handleDeleteCourse(course.id)} className="text-red-600 hover:underline">削除</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+               <thead className="bg-gray-50">
+                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コース名</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">担当教師</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生徒数</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {courses.map(course => (
+                  <tr key={course.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{course.title}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.teacherName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{course.studentIds.length}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <button onClick={() => handleOpenCourseEdit(course)} className="text-blue-600 hover:text-blue-900"><EditIcon /></button>
+                      <button onClick={() => handleDeleteCourse(course.id)} className="text-red-600 hover:text-red-900"><DeleteIcon /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-    );
+      )}
 
-    if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
-
-    return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-800">管理者ダッシュボード</h1>
-            {error && <Alert message={error} type="error" />}
-            
-            <div className="flex space-x-2 border-b">
-                <button onClick={() => setView('users')} className={`px-4 py-2 font-semibold ${view === 'users' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>ユーザー</button>
-                <button onClick={() => setView('courses')} className={`px-4 py-2 font-semibold ${view === 'courses' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>コース</button>
-            </div>
-
-            {view === 'users' ? renderUsers() : renderCourses()}
-
-            {editingUser && <UserEditModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleSaveUser} />}
-            {isCreatingUser && <CreateUserModal onClose={() => setIsCreatingUser(false)} onCreate={handleCreateUser} />}
-            {(isCreatingCourse || editingCourse) && <CourseEditModal course={editingCourse} users={users} onClose={() => { setIsCreatingCourse(false); setEditingCourse(null); }} onSave={handleSaveCourse} />}
-            {isAiGenerating && <AiCourseGenerateModal onClose={() => setIsAiGenerating(false)} onGenerate={handleAiGenerate} />}
-        </div>
-    );
+      {isUserEditModalOpen && selectedUser && (
+        <UserEditModal 
+          user={selectedUser} 
+          onClose={() => setIsUserEditModalOpen(false)} 
+          onSave={handleSaveUser} 
+        />
+      )}
+      {isCreateUserModalOpen && (
+          <CreateUserModal 
+            onClose={() => setIsCreateUserModalOpen(false)}
+            onCreate={handleCreateUser}
+          />
+      )}
+      {isCourseEditModalOpen && (
+        <CourseEditModal
+          course={selectedCourse}
+          users={users}
+          onClose={() => setIsCourseEditModalOpen(false)}
+          onSave={handleSaveCourse}
+        />
+      )}
+      {isAiModalOpen && (
+          <AiCourseGenerateModal
+            onClose={() => setIsAiModalOpen(false)}
+            onGenerate={handleAiGenerate}
+          />
+      )}
+    </div>
+  );
 };
 
 export default AdminPortal;

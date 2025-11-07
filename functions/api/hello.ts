@@ -1,22 +1,11 @@
 // functions/api/hello.ts
 
-// Fix: Add a type definition for PagesFunction to resolve the 'Cannot find name' TypeScript error.
-// Removed unused 'context' parameter and 'Env' type to fix build errors.
-type PagesFunction = () => Response | Promise<Response>;
-
 /**
- * PagesFunctionはCloudflare Pages Functionsのメインハンドラです。
- * @param context - リクエストに関する情報を含むコンテキストオブジェクト
+ * onRequestはCloudflare Pages Functionsのメインハンドラです。
+ * @param context - リクエストに関する情報を含むコンテキストオブジェクト (この関数では未使用)
  */
-export const onRequest: PagesFunction = async () => {
-  // contextオブジェクトにはリクエストに関する情報が含まれます。
-  // context.request: 受信したリクエストオブジェクト
-  // context.env: ダッシュボードで設定されたBindings
-  // context.params: 動的ルーティングのパラメータ
-  // context.waitUntil: レスポンス送信後もタスクを実行させるための関数
-  // context.next: ミドルウェアをチェインするための関数
-  // context.data: ミドルウェア間でデータを渡すためのオブジェクト
-
+// Fix: Inlined the function type to resolve the 'Cannot find name PagesFunction' error.
+export const onRequest: () => Promise<Response> = async () => {
   const data = {
     message: 'こんにちは、Cloudflare Functionsから！',
   };

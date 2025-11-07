@@ -21,7 +21,8 @@ export async function generateStudentProgressSummary(student: User, courseTitle:
             contents: prompt,
         });
         // Per guidelines, directly access .text property.
-        return response.text;
+        // Fix: Handle potential undefined response.
+        return response.text ?? '';
     } catch (error: any) {
         console.error("Gemini APIでのサマリー生成エラー:", error);
         const detail = error.message ? `: ${error.message}` : '';
@@ -63,7 +64,8 @@ export async function generateCourseDetails(topic: string): Promise<{ title: str
         });
 
         // Per guidelines, directly access .text property.
-        const jsonText = response.text.trim();
+        // Fix: Safely access .text with optional chaining.
+        const jsonText = response.text?.trim();
         if (!jsonText) {
             throw new Error("AIからの応答が空です。");
         }
@@ -95,7 +97,8 @@ export async function generateLessonPlan(courseTitle: string): Promise<string> {
             contents: prompt,
         });
         // Per guidelines, directly access .text property.
-        return response.text;
+        // Fix: Handle potential undefined response.
+        return response.text ?? '';
     } catch (error: any) {
         console.error("Gemini APIでのレッスン案生成エラー:", error);
         const detail = error.message ? `: ${error.message}` : '';
