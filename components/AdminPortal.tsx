@@ -20,6 +20,7 @@ import CourseEditModal from './CourseEditModal';
 import ScheduleCalendar from './ScheduleCalendar';
 import BookingDetailModal from './BookingDetailModal';
 import AdminAvailabilityModal from './AdminAvailabilityModal';
+import AdminManualBookingModal from './AdminManualBookingModal'; // Import the new modal
 import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon } from './icons';
 
 type ActiveView = 'dashboard' | 'users' | 'courses' | 'bookings' | 'availability';
@@ -40,6 +41,7 @@ const AdminPortal: React.FC = () => {
   const [isCourseEditModalOpen, setIsCourseEditModalOpen] = useState(false);
   const [isBookingDetailModalOpen, setIsBookingDetailModalOpen] = useState(false);
   const [isAdminAvailabilityModalOpen, setIsAdminAvailabilityModalOpen] = useState(false);
+  const [isManualBookingModalOpen, setIsManualBookingModalOpen] = useState(false); // State for the new modal
   
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -149,10 +151,11 @@ const AdminPortal: React.FC = () => {
     setSelectedBooking(booking);
     setIsBookingDetailModalOpen(true);
   };
-
-  const handleAvailabilitySaveSuccess = () => {
+  
+  const handleSaveSuccess = () => {
     fetchData();
     setIsAdminAvailabilityModalOpen(false);
+    setIsManualBookingModalOpen(false);
   };
 
   const handleDeleteAvailability = async (availabilityId: string) => {
@@ -267,7 +270,16 @@ const AdminPortal: React.FC = () => {
           </div>
         );
       case 'bookings':
-        return <ScheduleCalendar bookings={bookings} users={users} onBookingClick={handleBookingClick} />;
+        return (
+            <div>
+                 <div className="flex justify-end items-center mb-4">
+                    <button onClick={() => setIsManualBookingModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                        <AddIcon /> <span>手動で予約を追加</span>
+                    </button>
+                </div>
+                <ScheduleCalendar bookings={bookings} users={users} onBookingClick={handleBookingClick} />
+            </div>
+        );
       case 'availability':
         return (
           <div className="p-6 bg-white rounded-lg shadow">
@@ -338,7 +350,8 @@ const AdminPortal: React.FC = () => {
       {isCreateUserModalOpen && <CreateUserModal onClose={() => setIsCreateUserModalOpen(false)} onCreate={handleCreateUser} />}
       {isCourseEditModalOpen && <CourseEditModal course={selectedCourse} users={users} onClose={() => setIsCourseEditModalOpen(false)} onSave={handleSaveCourse} />}
       {isBookingDetailModalOpen && <BookingDetailModal booking={selectedBooking} onClose={() => setIsBookingDetailModalOpen(false)} userMap={userMap}/>}
-      {isAdminAvailabilityModalOpen && <AdminAvailabilityModal teachers={users.filter(u=>u.role==='teacher')} onClose={() => setIsAdminAvailabilityModalOpen(false)} onSaveSuccess={handleAvailabilitySaveSuccess} />}
+      {isAdminAvailabilityModalOpen && <AdminAvailabilityModal teachers={users.filter(u=>u.role==='teacher')} onClose={() => setIsAdminAvailabilityModalOpen(false)} onSaveSuccess={handleSaveSuccess} />}
+      {isManualBookingModalOpen && <AdminManualBookingModal users={users} courses={courses} onClose={() => setIsManualBookingModalOpen(false)} onSaveSuccess={handleSaveSuccess} />}
     </div>
   );
 };

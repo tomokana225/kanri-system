@@ -146,6 +146,11 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
     });
 };
 
+export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Promise<void> => {
+    const newBookingRef = doc(collection(db, "bookings"));
+    await setDoc(newBookingRef, bookingData);
+};
+
 export const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     const q = query(
         collection(db, "bookings"), 
