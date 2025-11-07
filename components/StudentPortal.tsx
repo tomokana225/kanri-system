@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Course, Booking, Availability } from '../types';
+import { User, Course, Booking } from '../types';
 // Fix: Removed 'addAvailability' as it's not exported from the firebase service and was causing an error.
 import { getCoursesForStudent, getBookingsForUser, updateBookingStatus } from '../services/firebase';
 import Spinner from './Spinner';
@@ -42,17 +42,12 @@ const StudentPortal: React.FC<{ user: User }> = ({ user }) => {
     fetchData();
   }, [fetchData]);
 
-  const handleCancelBooking = async (bookingId: string, availabilityId?: string) => {
+  const handleCancelBooking = async (bookingId: string) => {
     if (window.confirm('この予約を本当にキャンセルしますか？')) {
       try {
         await updateBookingStatus(bookingId, 'cancelled');
-        if (availabilityId) {
-          // This logic might need adjustment depending on how you want to handle cancellations.
-          // For now, let's assume we make the slot available again.
-          // This is a simplified version. A real app might have more complex logic.
-          // The function to re-add availability might not exist yet.
-          alert('予約がキャンセルされました。講師のカレンダーが更新されます。');
-        }
+        // A more complex implementation would restore the availability slot here.
+        alert('予約がキャンセルされました。');
         fetchData(); // Refresh data
       } catch (e: any) {
         setError('予約のキャンセルに失敗しました。');
