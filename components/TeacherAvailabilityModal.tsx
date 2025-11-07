@@ -3,7 +3,6 @@ import { User, Availability } from '../types';
 import { addAvailabilities } from '../services/firebase';
 import { Timestamp } from 'firebase/firestore';
 import Modal from './Modal';
-import Spinner from './Spinner';
 import Alert from './Alert';
 import Calendar from './Calendar';
 

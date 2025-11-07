@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Course, Booking, Availability } from '../types';
 import { getAllCourses, createBooking, getAllUsers, getTeacherAvailabilities } from '../services/firebase';
-import { Timestamp } from 'firebase/firestore';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import Alert from './Alert';
