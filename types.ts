@@ -7,17 +7,25 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  enrolledCourseIds?: string[];
-  assignedCourseIds?: string[];
+  courseIds?: string[];
 }
 
 export interface Course {
-  id: string;
+  id:string;
   title: string;
   description: string;
   teacherId: string;
   teacherName?: string;
   studentIds: string[];
+}
+
+export interface Availability {
+  id: string;
+  teacherId: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+  status?: 'available' | 'booked';
+  studentId?: string; // Who booked it
 }
 
 export interface Booking {
@@ -29,17 +37,16 @@ export interface Booking {
   courseTitle: string;
   startTime: Timestamp;
   endTime: Timestamp;
-  status: 'confirmed' | 'cancelled' | 'pending';
-  availabilityId?: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  feedback?: {
+    rating: number;
+    comment: string;
+  };
 }
 
-export interface Availability {
-  id: string;
-  teacherId: string;
-  startTime: Timestamp;
-  endTime: Timestamp;
-  status?: 'available' | 'booked';
-  studentId?: string;
+// For teacher portal to handle requests
+export interface BookingRequest extends Booking {
+    // This can be represented by Booking with status 'pending'
 }
 
 export interface Notification {
@@ -48,6 +55,5 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: Timestamp;
+  link?: string;
 }
-
-export interface BookingRequest extends Booking {}
