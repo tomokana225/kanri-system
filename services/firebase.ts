@@ -16,7 +16,8 @@ import {
   addDoc,
   orderBy,
   limit,
-  Timestamp
+  Timestamp,
+  runTransaction
 } from 'firebase/firestore';
 import { AppConfig, getConfig } from './config';
 import { User, Course, Booking, Availability, Notification } from '../types';
@@ -142,7 +143,7 @@ export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>
   const availabilitiesCol = collection(db, 'availabilities');
   availabilities.forEach(avail => {
     const newAvailRef = doc(availabilitiesCol);
-    batch.set(newAvailRef, avail);
+    batch.set(newAvailRef, { ...avail, status: 'available' }); // Ensure status is set
   });
   await batch.commit();
 };
@@ -152,7 +153,8 @@ export const getAvailabilitiesForTeacher = async (teacherId: string): Promise<Av
     const q = query(
       collection(db, 'availabilities'), 
       where('teacherId', '==', teacherId),
-      where('startTime', '>=', Timestamp.now())
+      where('startTime', '>=', Timestamp.now()),
+      orderBy('startTime', 'asc')
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => docToObject<Availability>(doc));
@@ -160,7 +162,8 @@ export const getAvailabilitiesForTeacher = async (teacherId: string): Promise<Av
 
 export const getAllAvailabilities = async (): Promise<Availability[]> => {
     await initializeFirebase();
-    const snapshot = await getDocs(collection(db, 'availabilities'));
+    const q = query(collection(db, 'availabilities'), orderBy('startTime', 'asc'));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => docToObject<Availability>(doc));
 }
 
@@ -172,17 +175,29 @@ export const deleteAvailability = async (availabilityId: string): Promise<void> 
 // Booking Functions
 export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
     await initializeFirebase();
-    const batch = writeBatch(db);
-    
-    // Add new booking
-    const newBookingRef = doc(collection(db, 'bookings'));
-    batch.set(newBookingRef, bookingData);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const availabilityRef = doc(db, 'availabilities', availabilityId);
+            const availabilityDoc = await transaction.get(availabilityRef);
 
-    // Update availability to 'booked'
-    const availabilityRef = doc(db, 'availabilities', availabilityId);
-    batch.update(availabilityRef, { status: 'booked', studentId: bookingData.studentId });
+            if (!availabilityDoc.exists() || availabilityDoc.data().status === 'booked') {
+                throw new Error("This slot is already booked or no longer available.");
+            }
 
-    await batch.commit();
+            // Create new booking
+            const newBookingRef = doc(collection(db, 'bookings'));
+            transaction.set(newBookingRef, bookingData);
+
+            // Update availability to 'booked'
+            transaction.update(availabilityRef, { status: 'booked', studentId: bookingData.studentId });
+        });
+    } catch (e) {
+        console.error("Booking transaction failed: ", e);
+        if (e instanceof Error && e.message.includes('already booked')) {
+            throw new Error('申し訳ありませんが、この時間枠はたった今予約されました。');
+        }
+        throw e; // re-throw other errors
+    }
 };
 
 export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Promise<void> => {
@@ -200,7 +215,8 @@ export const getBookingsForUser = async (userId: string, role: 'student' | 'teac
 
 export const getAllBookings = async (): Promise<Booking[]> => {
     await initializeFirebase();
-    const snapshot = await getDocs(collection(db, 'bookings'));
+    const q = query(collection(db, 'bookings'), orderBy('startTime', 'desc'));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => docToObject<Booking>(doc));
 };
 
