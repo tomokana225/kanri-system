@@ -54,11 +54,14 @@ const CourseEditModal: React.FC<CourseEditModalProps> = ({ course, users, onClos
     setError('');
     setLoading(true);
 
+    const selectedTeacher = teachers.find(t => t.id === teacherId);
+
     const courseData = {
         title,
         description,
         teacherId,
         studentIds: selectedStudentIds,
+        teacherName: selectedTeacher ? selectedTeacher.name : '不明',
     };
 
     try {

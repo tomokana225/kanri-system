@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Course, Booking, Availability } from '../types';
-import { getAllCourses, createBooking, getAllUsers, getTeacherAvailabilities } from '../services/firebase';
+import { getAllCourses, createBooking, getTeacherAvailabilities } from '../services/firebase';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import Alert from './Alert';
@@ -15,7 +15,6 @@ interface BookingModalProps {
 const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuccess }) => {
   const [step, setStep] = useState(1);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [teachers, setTeachers] = useState<Map<string, string>>(new Map());
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -28,11 +27,8 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
       setLoading(true);
       setError('');
       try {
-        const [fetchedCourses, fetchedUsers] = await Promise.all([getAllCourses(), getAllUsers()]);
+        const fetchedCourses = await getAllCourses();
         setCourses(fetchedCourses);
-        // FIX: Explicitly type `teacherMap` to resolve TypeScript error.
-        const teacherMap: Map<string, string> = new Map(fetchedUsers.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
-        setTeachers(teacherMap);
       } catch (e: any) {
         const code = e.code ? ` (コード: ${e.code})` : '';
         setError(`コースの読み込みに失敗しました。${code}`);
@@ -140,7 +136,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
                     <button key={course.id} onClick={() => handleCourseSelect(course)} className="p-4 border rounded-lg text-left hover:bg-gray-100 hover:shadow-md transition-all">
                         <p className="font-bold text-blue-700">{course.title}</p>
                         <p className="text-sm text-gray-600">{course.description}</p>
-                        <p className="text-sm text-gray-500 mt-2">担当: {teachers.get(course.teacherId) || '不明'}</p>
+                        <p className="text-sm text-gray-500 mt-2">担当: {course.teacherName || '不明'}</p>
                     </button>
                 ))}
             </div>
@@ -179,7 +175,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, onClose, onBookingSuc
                 <div className="p-4 bg-gray-50 rounded-lg text-left space-y-2">
                     <p><strong>コース:</strong> {selectedCourse?.title}</p>
                     <p><strong>日時:</strong> {startTime?.toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                    <p><strong>担当教師:</strong> {teachers.get(selectedCourse?.teacherId || '') || '不明'}</p>
+                    <p><strong>担当教師:</strong> {selectedCourse?.teacherName || '不明'}</p>
                 </div>
                 <div className="mt-6 flex justify-center gap-4">
                     <button onClick={() => { setStep(2); setError(''); }} className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100">戻る</button>

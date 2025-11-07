@@ -91,16 +91,18 @@ export const deleteUser = async (uid: string): Promise<void> => {
 export const getAllCourses = async (): Promise<Course[]> => {
     const coursesCol = collection(db, 'courses');
     const courseSnapshot = await getDocs(coursesCol);
-    const courses = courseSnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Course));
-    
-    // Fetch teacher names for convenience
-    const users = await getAllUsers();
-    const teacherMap = new Map(users.filter(u => u.role === 'teacher' && u.id && u.name).map(t => [t.id, t.name]));
-
-    return courses.map(course => ({
-        ...course,
-        teacherName: teacherMap.get(course.teacherId) || '不明'
-    }));
+    // The teacherName is now a denormalized field on the course document itself.
+    // This avoids needing to fetch all users, which would cause a permission-denied error for non-admins.
+    const courses = courseSnapshot.docs.filter(doc => doc.exists()).map(doc => {
+        const data = doc.data();
+        return { 
+            id: doc.id, 
+            ...data,
+            // Provide a fallback for any old data that might not have the teacherName field
+            teacherName: data.teacherName || '不明' 
+        } as Course
+    });
+    return courses;
 };
 
 export const getStudentCourses = async (studentId: string): Promise<Course[]> => {
