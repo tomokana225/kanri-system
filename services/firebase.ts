@@ -61,7 +61,7 @@ export const getAllUsers = async (): Promise<User[]> => {
     await initializeFirebase();
     const usersCol = collection(db, 'users');
     const userSnapshot = await getDocs(usersCol);
-    return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    return userSnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as User));
 };
 
 // Update a user
@@ -85,7 +85,7 @@ export const getAllCourses = async (): Promise<Course[]> => {
     await initializeFirebase();
     const coursesCol = collection(db, 'courses');
     const courseSnapshot = await getDocs(coursesCol);
-    return courseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
+    return courseSnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Course));
 };
 
 // Get courses for a specific student
@@ -132,7 +132,8 @@ export const deleteCourse = async (courseId: string): Promise<void> => {
 export const getAllBookings = async (): Promise<Booking[]> => {
     await initializeFirebase();
     const bookingsCol = collection(db, 'bookings');
-    const bookingSnapshot = await getDocs(bookingsCol);
+    const q = query(bookingsCol, orderBy("startTime", "asc"));
+    const bookingSnapshot = await getDocs(q);
     return bookingSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
@@ -140,7 +141,7 @@ export const getAllBookings = async (): Promise<Booking[]> => {
 export const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
     await initializeFirebase();
     const bookingsRef = collection(db, 'bookings');
-    const q = query(bookingsRef, where('studentId', '==', studentId));
+    const q = query(bookingsRef, where('studentId', '==', studentId), orderBy("startTime", "asc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
@@ -149,21 +150,26 @@ export const getStudentBookings = async (studentId: string): Promise<Booking[]> 
 export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> => {
     await initializeFirebase();
     const bookingsRef = collection(db, 'bookings');
-    const q = query(bookingsRef, where('teacherId', '==', teacherId));
+    const q = query(bookingsRef, where('teacherId', '==', teacherId), orderBy("startTime", "asc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
-// Create a booking and consume an availability slot
+// Create a booking and update the availability slot to 'booked'
 export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
     await initializeFirebase();
     const batch = writeBatch(db);
 
+    // 1. Create the new booking document
     const bookingRef = doc(collection(db, 'bookings'));
     batch.set(bookingRef, bookingData);
     
+    // 2. Mark the availability slot as booked
     const availabilityRef = doc(db, 'availabilities', availabilityId);
-    batch.delete(availabilityRef);
+    batch.update(availabilityRef, { 
+      status: 'booked',
+      studentId: bookingData.studentId 
+    });
     
     await batch.commit();
 };
@@ -181,26 +187,33 @@ export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Pro
 export const getAllAvailabilities = async (): Promise<Availability[]> => {
     await initializeFirebase();
     const availabilitiesCol = collection(db, 'availabilities');
-    const availabilitySnapshot = await getDocs(availabilitiesCol);
+    const q = query(availabilitiesCol, orderBy("startTime", "asc"));
+    const availabilitySnapshot = await getDocs(q);
     return availabilitySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
 };
 
-// Get availabilities for a specific teacher
+// Get available slots for a specific teacher
 export const getTeacherAvailabilities = async (teacherId: string): Promise<Availability[]> => {
     await initializeFirebase();
     const availabilitiesRef = collection(db, 'availabilities');
-    const q = query(availabilitiesRef, where('teacherId', '==', teacherId), where('startTime', '>', Timestamp.now()));
+    const q = query(
+      availabilitiesRef, 
+      where('teacherId', '==', teacherId),
+      where('status', '==', 'available'),
+      where('startTime', '>', Timestamp.now()),
+      orderBy('startTime', 'asc')
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
 };
 
 // Add multiple availabilities in a batch
-export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>[]): Promise<void> => {
+export const addAvailabilities = async (availabilities: Omit<Availability, 'id' | 'status' | 'studentId'>[]): Promise<void> => {
     await initializeFirebase();
     const batch = writeBatch(db);
     availabilities.forEach(availability => {
         const docRef = doc(collection(db, 'availabilities'));
-        batch.set(docRef, availability);
+        batch.set(docRef, { ...availability, status: 'available' });
     });
     await batch.commit();
 };

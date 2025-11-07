@@ -159,7 +159,7 @@ const AdminPortal: React.FC = () => {
   };
 
   const handleDeleteAvailability = async (availabilityId: string) => {
-    if (window.confirm('この空き時間を削除しますか？')) {
+    if (window.confirm('この空き時間スロットを削除しますか？')) {
         try {
             await deleteAvailability(availabilityId);
             fetchData();
@@ -295,14 +295,22 @@ const AdminPortal: React.FC = () => {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">教師</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">日時</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">操作</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {availabilities.map(avail => (
-                    <tr key={avail.id}>
+                    <tr key={avail.id} className={avail.status === 'booked' ? 'bg-gray-100' : ''}>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{userMap.get(avail.teacherId) || '不明'}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{avail.startTime.toDate().toLocaleString('ja-JP')}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {avail.status === 'booked' ? (
+                          <span className="font-semibold text-red-600">予約済み ({userMap.get(avail.studentId || '') || '不明'})</span>
+                        ) : (
+                          <span className="text-green-600">予約可能</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <button onClick={() => handleDeleteAvailability(avail.id)} className="text-red-600 hover:text-red-900"><DeleteIcon /></button>
                       </td>

@@ -19,7 +19,7 @@ export interface Course {
 }
 
 export interface Booking {
-  id: string;
+  id:string;
   studentId: string;
   studentName: string;
   teacherId: string;
@@ -35,6 +35,8 @@ export interface Availability {
   teacherId: string;
   startTime: Timestamp;
   endTime: Timestamp;
+  status?: 'available' | 'booked';
+  studentId?: string;
 }
 
 export interface Notification {
