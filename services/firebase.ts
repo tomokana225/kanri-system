@@ -1,4 +1,4 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, FirebaseApp, getApps } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 
     getFirestore, 
@@ -35,9 +35,12 @@ export const initializeFirebase = async () => {
             // Check if firebaseApp is already initialized to avoid re-initialization
             if (!getApps().length) {
                 firebaseApp = initializeApp(config.firebase);
-                auth = getAuth(firebaseApp);
-                db = getFirestore(firebaseApp);
+            } else {
+                firebaseApp = getApps()[0];
             }
+            auth = getAuth(firebaseApp);
+            db = getFirestore(firebaseApp);
+            
             return { auth, db };
         } catch (error) {
             console.error("Firebase initialization failed:", error);
@@ -46,11 +49,7 @@ export const initializeFirebase = async () => {
             throw error; // Re-throw to be caught by the caller
         }
     })();
-    // A function to get existing apps, to prevent re-initialization error
-    const getApps = () => {
-        // A placeholder for a real implementation, e.g., from firebase/app
-        return (firebaseApp ? [firebaseApp] : []);
-    }
+
     return initializationPromise;
 };
 
@@ -72,7 +71,7 @@ export const createUserProfile = async (uid: string, data: Omit<User, 'id'>): Pr
 export const getAllUsers = async (): Promise<User[]> => {
     const usersCol = collection(db, 'users');
     const userSnapshot = await getDocs(usersCol);
-    return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    return userSnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as User));
 };
 
 export const updateUser = async (uid: string, data: Partial<Omit<User, 'id'>>): Promise<void> => {
@@ -91,11 +90,11 @@ export const deleteUser = async (uid: string): Promise<void> => {
 export const getAllCourses = async (): Promise<Course[]> => {
     const coursesCol = collection(db, 'courses');
     const courseSnapshot = await getDocs(coursesCol);
-    const courses = courseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
+    const courses = courseSnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Course));
     
     // Fetch teacher names for convenience
     const users = await getAllUsers();
-    const teacherMap = new Map(users.filter(u => u.role === 'teacher').map(t => [t.id, t.name]));
+    const teacherMap = new Map(users.filter(u => u.role === 'teacher' && u.id && u.name).map(t => [t.id, t.name]));
 
     return courses.map(course => ({
         ...course,
@@ -147,16 +146,23 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
 };
 
 export const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
-    const q = query(collection(db, "bookings"), where("studentId", "==", studentId));
+    const q = query(collection(db, "bookings"), where("studentId", "==", studentId), where("startTime", ">=", Timestamp.now()));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
 export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> => {
-    const q = query(collection(db, "bookings"), where("teacherId", "==", teacherId));
+    const q = query(collection(db, "bookings"), where("teacherId", "==", teacherId), where("startTime", ">=", Timestamp.now()));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
+
+export const getAllBookings = async (): Promise<Booking[]> => {
+    const q = query(collection(db, "bookings"), where("startTime", ">=", Timestamp.now()));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+};
+
 
 // Availability Functions
 export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>[]): Promise<void> => {
@@ -172,6 +178,12 @@ export const getTeacherAvailabilities = async (teacherId: string): Promise<Avail
     const q = query(collection(db, "availabilities"), where("teacherId", "==", teacherId), where("startTime", ">", Timestamp.now()));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
+};
+
+export const getAllAvailabilities = async (): Promise<Availability[]> => {
+    const q = query(collection(db, "availabilities"), where("startTime", ">", Timestamp.now()));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Availability));
 };
 
 export const deleteAvailability = async (availabilityId: string): Promise<void> => {

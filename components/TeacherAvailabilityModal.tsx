@@ -67,7 +67,8 @@ const TeacherAvailabilityModal: React.FC<TeacherAvailabilityModalProps> = ({ use
         {error && <Alert message={error} type="error" />}
         <p className="text-sm text-gray-600">指導可能な日付を選択し、時間帯を複数選択してください。</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Calendar onDateSelect={setSelectedDate} selectedDate={selectedDate} availableDates={[]} />
+          {/* Fix: Remove availableDates prop which was incorrectly passed an empty array, preventing any date selection. */}
+          <Calendar onDateSelect={setSelectedDate} selectedDate={selectedDate} />
           {selectedDate && (
             <div>
               <h4 className="font-semibold mb-2 text-gray-800">
