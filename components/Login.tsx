@@ -23,10 +23,15 @@ const Login: React.FC = () => {
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
+        
+        // Check if the new user should be an admin
+        const isAdmin = firebaseUser.email?.includes('admin@') ?? false;
+        const role = isAdmin ? 'admin' : 'student';
+
         const newUserProfile: Omit<User, 'id'> = {
           email: firebaseUser.email!,
           name: firebaseUser.email!.split('@')[0],
-          role: 'student', // 新規登録時のデフォルトロール
+          role: role,
         };
         await createUserProfile(firebaseUser.uid, newUserProfile);
       }

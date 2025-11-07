@@ -28,8 +28,9 @@ const App: React.FC = () => {
               setUser(userProfile);
             } else {
               console.log("Firestoreにユーザープロファイルが見つかりません。新規作成します:", firebaseUser.uid);
-              const isHardcodedAdmin = firebaseUser.email === 'admin@test.com';
-              const role = isHardcodedAdmin ? 'admin' : 'student';
+              // An admin user is identified if their email contains 'admin@'
+              const isAdmin = firebaseUser.email?.includes('admin@') ?? false;
+              const role = isAdmin ? 'admin' : 'student';
 
               const newUser: User = {
                 id: firebaseUser.uid,

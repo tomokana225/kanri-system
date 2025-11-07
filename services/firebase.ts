@@ -1,231 +1,224 @@
-import { initializeApp, FirebaseApp, getApps } from 'firebase/app';
+import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 
-    getFirestore, 
-    doc, 
-    getDoc, 
-    setDoc, 
-    collection, 
-    getDocs, 
-    query, 
-    where,
-    Timestamp,
-    writeBatch,
-    deleteDoc,
-    updateDoc,
-    runTransaction,
-    orderBy
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  getDocs, 
+  query, 
+  where, 
+  updateDoc, 
+  deleteDoc, 
+  writeBatch,
+  addDoc,
+  Firestore,
+  Timestamp,
+  orderBy,
 } from 'firebase/firestore';
+import { User, Course, Booking, Availability, Notification } from '../types';
 import { getConfig } from './config';
-import { User, Course, Booking, Notification, Availability } from '../types';
 
 let firebaseApp: FirebaseApp;
 let auth: Auth;
-let db: ReturnType<typeof getFirestore>;
+let db: Firestore;
 
-// Singleton initialization
-let initializationPromise: Promise<{ auth: Auth; db: ReturnType<typeof getFirestore> }> | null = null;
-
+// Helper to initialize Firebase
 export const initializeFirebase = async () => {
-    if (initializationPromise) {
-        return initializationPromise;
+    if (!firebaseApp) {
+        const config = await getConfig();
+        firebaseApp = initializeApp(config.firebase);
+        auth = getAuth(firebaseApp);
+        db = getFirestore(firebaseApp);
     }
-    initializationPromise = (async () => {
-        try {
-            const config = await getConfig();
-            // Check if firebaseApp is already initialized to avoid re-initialization
-            if (!getApps().length) {
-                firebaseApp = initializeApp(config.firebase);
-            } else {
-                firebaseApp = getApps()[0];
-            }
-            auth = getAuth(firebaseApp);
-            db = getFirestore(firebaseApp);
-            
-            return { auth, db };
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            // Reset promise on failure to allow retry
-            initializationPromise = null;
-            throw error; // Re-throw to be caught by the caller
-        }
-    })();
-
-    return initializationPromise;
+    return { firebaseApp, auth, db };
 };
 
-// User Functions
+
+// --- User Management ---
+
+// Get a user's profile from Firestore
 export const getUserProfile = async (uid: string): Promise<User | null> => {
-    const docRef = doc(db, "users", uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as User;
+    await initializeFirebase();
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+        return { id: userSnap.id, ...userSnap.data() } as User;
     }
     return null;
 };
 
-export const createUserProfile = async (uid: string, data: Omit<User, 'id'>): Promise<void> => {
+// Create a user profile in Firestore
+export const createUserProfile = async (uid: string, userData: Omit<User, 'id'>): Promise<void> => {
+    await initializeFirebase();
     const userRef = doc(db, 'users', uid);
-    await setDoc(userRef, data);
+    await setDoc(userRef, userData);
 };
 
+// Get all users
 export const getAllUsers = async (): Promise<User[]> => {
+    await initializeFirebase();
     const usersCol = collection(db, 'users');
     const userSnapshot = await getDocs(usersCol);
-    return userSnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as User));
+    return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 };
 
-export const updateUser = async (uid: string, data: Partial<Omit<User, 'id'>>): Promise<void> => {
+// Update a user
+export const updateUser = async (uid: string, userData: Partial<Omit<User, 'id'>>): Promise<void> => {
+    await initializeFirebase();
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, data);
+    await updateDoc(userRef, userData);
 };
 
+// Delete a user from Firestore (doesn't delete from Auth)
 export const deleteUser = async (uid: string): Promise<void> => {
-    // This only deletes the Firestore record. Deleting the auth user requires admin SDK.
-    const userRef = doc(db, 'users', uid);
-    await deleteDoc(userRef);
+    await initializeFirebase();
+    await deleteDoc(doc(db, 'users', uid));
 };
 
 
-// Course Functions
+// --- Course Management ---
+
+// Get all courses
 export const getAllCourses = async (): Promise<Course[]> => {
+    await initializeFirebase();
     const coursesCol = collection(db, 'courses');
     const courseSnapshot = await getDocs(coursesCol);
-    // The teacherName is now a denormalized field on the course document itself.
-    // This avoids needing to fetch all users, which would cause a permission-denied error for non-admins.
-    const courses = courseSnapshot.docs.filter(doc => doc.exists()).map(doc => {
-        const data = doc.data();
-        return { 
-            id: doc.id, 
-            ...data,
-            // Provide a fallback for any old data that might not have the teacherName field
-            teacherName: data.teacherName || '不明' 
-        } as Course
-    });
-    return courses;
+    return courseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
 };
 
+// Get courses for a specific student
 export const getStudentCourses = async (studentId: string): Promise<Course[]> => {
-    const q = query(collection(db, "courses"), where("studentIds", "array-contains", studentId));
+    await initializeFirebase();
+    const coursesRef = collection(db, 'courses');
+    const q = query(coursesRef, where('studentIds', 'array-contains', studentId));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
 };
 
+// Get courses for a specific teacher
 export const getTeacherCourses = async (teacherId: string): Promise<Course[]> => {
-    const q = query(collection(db, "courses"), where("teacherId", "==", teacherId));
+    await initializeFirebase();
+    const coursesRef = collection(db, 'courses');
+    const q = query(coursesRef, where('teacherId', '==', teacherId));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
 };
 
+// Create a new course
 export const createCourse = async (courseData: Omit<Course, 'id'>): Promise<void> => {
-    const newCourseRef = doc(collection(db, "courses"));
-    await setDoc(newCourseRef, courseData);
+    await initializeFirebase();
+    await addDoc(collection(db, 'courses'), courseData);
 };
 
+// Update an existing course
 export const updateCourse = async (courseId: string, courseData: Partial<Omit<Course, 'id'>>): Promise<void> => {
-    const courseRef = doc(db, "courses", courseId);
+    await initializeFirebase();
+    const courseRef = doc(db, 'courses', courseId);
     await updateDoc(courseRef, courseData);
 };
 
+// Delete a course
 export const deleteCourse = async (courseId: string): Promise<void> => {
-    const courseRef = doc(db, "courses", courseId);
-    await deleteDoc(courseRef);
+    await initializeFirebase();
+    await deleteDoc(doc(db, 'courses', courseId));
 };
 
 
-// Booking Functions
-export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
-    const newBookingRef = doc(collection(db, "bookings"));
-    const availabilityRef = doc(db, "availabilities", availabilityId);
+// --- Booking Management ---
 
-    await runTransaction(db, async (transaction) => {
-        const availabilityDoc = await transaction.get(availabilityRef);
-        if (!availabilityDoc.exists()) {
-            throw new Error("This time slot is no longer available.");
-        }
-        transaction.set(newBookingRef, bookingData);
-        transaction.delete(availabilityRef); // The slot is now booked, so remove it
-    });
-};
-
-export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Promise<void> => {
-    const newBookingRef = doc(collection(db, "bookings"));
-    await setDoc(newBookingRef, bookingData);
-};
-
-export const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
-    const q = query(
-        collection(db, "bookings"), 
-        where("studentId", "==", studentId), 
-        where("startTime", ">=", Timestamp.now()),
-        orderBy("startTime", "asc")
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-};
-
-export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> => {
-    const q = query(
-        collection(db, "bookings"), 
-        where("teacherId", "==", teacherId), 
-        where("startTime", ">=", Timestamp.now()),
-        orderBy("startTime", "asc")
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-};
-
+// Get all bookings
 export const getAllBookings = async (): Promise<Booking[]> => {
-    const q = query(
-        collection(db, "bookings"), 
-        where("startTime", ">=", Timestamp.now()),
-        orderBy("startTime", "asc")
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+    await initializeFirebase();
+    const bookingsCol = collection(db, 'bookings');
+    const bookingSnapshot = await getDocs(bookingsCol);
+    return bookingSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 };
 
+// Get bookings for a specific student
+export const getStudentBookings = async (studentId: string): Promise<Booking[]> => {
+    await initializeFirebase();
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(bookingsRef, where('studentId', '==', studentId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+};
 
-// Availability Functions
-export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>[]): Promise<void> => {
+// Get bookings for a specific teacher
+export const getTeacherBookings = async (teacherId: string): Promise<Booking[]> => {
+    await initializeFirebase();
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(bookingsRef, where('teacherId', '==', teacherId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+};
+
+// Create a booking and consume an availability slot
+export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
+    await initializeFirebase();
     const batch = writeBatch(db);
-    availabilities.forEach(avail => {
-        const newAvailRef = doc(collection(db, "availabilities"));
-        batch.set(newAvailRef, avail);
-    });
+
+    const bookingRef = doc(collection(db, 'bookings'));
+    batch.set(bookingRef, bookingData);
+    
+    const availabilityRef = doc(db, 'availabilities', availabilityId);
+    batch.delete(availabilityRef);
+    
     await batch.commit();
 };
 
+// Create a manual booking (by admin, does not consume availability)
+export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Promise<void> => {
+    await initializeFirebase();
+    await addDoc(collection(db, 'bookings'), bookingData);
+};
+
+
+// --- Availability Management ---
+
+// Get all availabilities
+export const getAllAvailabilities = async (): Promise<Availability[]> => {
+    await initializeFirebase();
+    const availabilitiesCol = collection(db, 'availabilities');
+    const availabilitySnapshot = await getDocs(availabilitiesCol);
+    return availabilitySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
+};
+
+// Get availabilities for a specific teacher
 export const getTeacherAvailabilities = async (teacherId: string): Promise<Availability[]> => {
-    const q = query(
-        collection(db, "availabilities"), 
-        where("teacherId", "==", teacherId), 
-        where("startTime", ">", Timestamp.now()),
-        orderBy("startTime", "asc")
-    );
+    await initializeFirebase();
+    const availabilitiesRef = collection(db, 'availabilities');
+    const q = query(availabilitiesRef, where('teacherId', '==', teacherId), where('startTime', '>', Timestamp.now()));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Availability));
 };
 
-export const getAllAvailabilities = async (): Promise<Availability[]> => {
-    const q = query(
-        collection(db, "availabilities"), 
-        where("startTime", ">", Timestamp.now()),
-        orderBy("startTime", "asc")
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.filter(doc => doc.exists()).map(doc => ({ id: doc.id, ...doc.data() } as Availability));
+// Add multiple availabilities in a batch
+export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>[]): Promise<void> => {
+    await initializeFirebase();
+    const batch = writeBatch(db);
+    availabilities.forEach(availability => {
+        const docRef = doc(collection(db, 'availabilities'));
+        batch.set(docRef, availability);
+    });
+    await batch.commit();
 };
 
+// Delete an availability slot
 export const deleteAvailability = async (availabilityId: string): Promise<void> => {
-    const availRef = doc(db, "availabilities", availabilityId);
-    await deleteDoc(availRef);
+    await initializeFirebase();
+    await deleteDoc(doc(db, 'availabilities', availabilityId));
 };
 
 
-// Notification Functions
+// --- Notification Management ---
+
+// Get notifications for a user
 export const getUserNotifications = async (userId: string): Promise<Notification[]> => {
-    const q = query(collection(db, "notifications"), where("userId", "==", userId));
+    await initializeFirebase();
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(notificationsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
 };
