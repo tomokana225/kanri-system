@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Course, Booking, Availability } from '../types';
 import { getTeacherCourses, getTeacherBookings, getTeacherAvailabilities, deleteAvailability } from '../services/firebase';
-import { generateLessonPlan } from '../services/geminiService';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import TeacherAvailabilityModal from './TeacherAvailabilityModal';
@@ -16,11 +15,6 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
     const [availabilities, setAvailabilities] = useState<Availability[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
-    const [loadingPlan, setLoadingPlan] = useState(false);
-    const [lessonPlan, setLessonPlan] = useState('');
-    const [planError, setPlanError] = useState('');
-    const [selectedCourseForPlan, setSelectedCourseForPlan] = useState<string | null>(null);
 
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
 
@@ -48,21 +42,6 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
-
-    const handleGeneratePlan = async (courseTitle: string) => {
-        setLoadingPlan(true);
-        setLessonPlan('');
-        setPlanError('');
-        setSelectedCourseForPlan(courseTitle);
-        try {
-            const result = await generateLessonPlan(courseTitle);
-            setLessonPlan(result);
-        } catch (e: any) {
-            setPlanError(e.message || "予期せぬエラーが発生しました。");
-        } finally {
-            setLoadingPlan(false);
-        }
-    };
     
     const handleDeleteAvailability = async (availabilityId: string) => {
         if (window.confirm('この空き時間を削除しますか？')) {
@@ -88,8 +67,8 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-800">教師ダッシュボード</h1>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div className="p-6 bg-white rounded-lg shadow lg:col-span-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="p-6 bg-white rounded-lg shadow">
                     <h2 className="text-xl font-semibold mb-4">私のコース</h2>
                     {courses.length > 0 ? (
                         <ul className="space-y-3">
@@ -99,13 +78,6 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
                                         <span className="text-gray-800 font-semibold">{course.title}</span>
                                         <span className="text-sm text-gray-500">{course.studentIds.length}人の生徒</span>
                                     </div>
-                                    <button
-                                        onClick={() => handleGeneratePlan(course.title)}
-                                        disabled={loadingPlan}
-                                        className="w-full mt-2 px-3 py-1.5 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400"
-                                    >
-                                        {loadingPlan && selectedCourseForPlan === course.title ? '生成中...' : 'AIでレッスン案を作成'}
-                                    </button>
                                 </li>
                             ))}
                         </ul>
@@ -114,7 +86,7 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
                     )}
                 </div>
 
-                <div className="p-6 bg-white rounded-lg shadow lg:col-span-1">
+                <div className="p-6 bg-white rounded-lg shadow">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-semibold">空き時間管理</h2>
                         <button
@@ -140,7 +112,7 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
                     )}
                 </div>
 
-                <div className="p-6 bg-white rounded-lg shadow lg:col-span-1 xl:col-span-1">
+                <div className="p-6 bg-white rounded-lg shadow">
                     <h2 className="text-xl font-semibold mb-4">今後の予約</h2>
                     {bookings.length > 0 ? (
                         <ul className="space-y-2 max-h-60 overflow-y-auto">
@@ -155,20 +127,6 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
                         </ul>
                     ) : (
                          <p className="text-gray-500 text-center pt-8">今後の予約はありません。</p>
-                    )}
-                </div>
-                 <div className="p-6 bg-white rounded-lg shadow lg:col-span-full xl:col-span-3">
-                    <h2 className="text-xl font-semibold mb-4">AIによるレッスン提案</h2>
-                    {planError && <Alert message={planError} type="error" />}
-                    {loadingPlan && <div className="flex justify-center items-center h-24"><Spinner /></div>}
-                    {lessonPlan && !loadingPlan && (
-                        <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-                          <h3 className="font-semibold text-green-800 mb-2">{selectedCourseForPlan} のレッスン案</h3>
-                          <p className="text-gray-800 whitespace-pre-wrap">{lessonPlan}</p>
-                        </div>
-                    )}
-                    {!lessonPlan && !loadingPlan && !planError && (
-                        <p className="text-gray-500 text-center pt-8">コースの「AIでレッスン案を作成」をクリックして、授業のアイデアを得ましょう。</p>
                     )}
                 </div>
             </div>

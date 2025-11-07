@@ -10,20 +10,17 @@ import {
   deleteCourse,
   getAllBookings,
   getAllAvailabilities,
-  addAvailabilities,
   deleteAvailability
 } from '../services/firebase';
-import { generateCourseDetails } from '../services/geminiService';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import UserEditModal from './UserEditModal';
 import CreateUserModal from './CreateUserModal';
 import CourseEditModal from './CourseEditModal';
-import AiCourseGenerateModal from './AiCourseGenerateModal';
 import ScheduleCalendar from './ScheduleCalendar';
 import BookingDetailModal from './BookingDetailModal';
 import AdminAvailabilityModal from './AdminAvailabilityModal';
-import { AddIcon, AiIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon } from './icons';
+import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon } from './icons';
 
 type ActiveView = 'dashboard' | 'users' | 'courses' | 'bookings' | 'availability';
 
@@ -41,7 +38,6 @@ const AdminPortal: React.FC = () => {
   const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [isCourseEditModalOpen, setIsCourseEditModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isBookingDetailModalOpen, setIsBookingDetailModalOpen] = useState(false);
   const [isAdminAvailabilityModalOpen, setIsAdminAvailabilityModalOpen] = useState(false);
   
@@ -149,18 +145,6 @@ const AdminPortal: React.FC = () => {
     }
   };
   
-  const handleAiGenerate = async (topic: string) => {
-      try {
-          const { title, description } = await generateCourseDetails(topic);
-          setSelectedCourse({ title, description, id: '', teacherId: '', studentIds: [] });
-          setIsAiModalOpen(false);
-          setIsCourseEditModalOpen(true);
-      } catch(err) {
-          console.error("AIコース生成エラー:", err);
-          throw err;
-      }
-  };
-
   const handleBookingClick = (booking: Booking) => {
     setSelectedBooking(booking);
     setIsBookingDetailModalOpen(true);
@@ -253,9 +237,6 @@ const AdminPortal: React.FC = () => {
                 <button onClick={() => handleOpenCourseEdit(null)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                   <AddIcon /> <span>新規コース作成</span>
                 </button>
-                <button onClick={() => setIsAiModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
-                  <AiIcon /> <span>AIでコースを生成</span>
-                </button>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -288,7 +269,6 @@ const AdminPortal: React.FC = () => {
       case 'bookings':
         return <ScheduleCalendar bookings={bookings} users={users} onBookingClick={handleBookingClick} />;
       case 'availability':
-        const teachers = users.filter(u => u.role === 'teacher');
         return (
           <div className="p-6 bg-white rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
@@ -357,7 +337,6 @@ const AdminPortal: React.FC = () => {
       {isUserEditModalOpen && selectedUser && <UserEditModal user={selectedUser} onClose={() => setIsUserEditModalOpen(false)} onSave={handleSaveUser} />}
       {isCreateUserModalOpen && <CreateUserModal onClose={() => setIsCreateUserModalOpen(false)} onCreate={handleCreateUser} />}
       {isCourseEditModalOpen && <CourseEditModal course={selectedCourse} users={users} onClose={() => setIsCourseEditModalOpen(false)} onSave={handleSaveCourse} />}
-      {isAiModalOpen && <AiCourseGenerateModal onClose={() => setIsAiModalOpen(false)} onGenerate={handleAiGenerate} />}
       {isBookingDetailModalOpen && <BookingDetailModal booking={selectedBooking} onClose={() => setIsBookingDetailModalOpen(false)} userMap={userMap}/>}
       {isAdminAvailabilityModalOpen && <AdminAvailabilityModal teachers={users.filter(u=>u.role==='teacher')} onClose={() => setIsAdminAvailabilityModalOpen(false)} onSaveSuccess={handleAvailabilitySaveSuccess} />}
     </div>

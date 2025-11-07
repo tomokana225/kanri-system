@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Course, Booking } from '../types';
-import { generateStudentProgressSummary } from '../services/geminiService';
 import { getStudentCourses, getStudentBookings } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
@@ -11,10 +10,6 @@ interface StudentPortalProps {
 }
 
 const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
-  const [summary, setSummary] = useState('');
-  const [loadingSummary, setLoadingSummary] = useState(false);
-  const [summaryError, setSummaryError] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [coursesError, setCoursesError] = useState('');
@@ -50,21 +45,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
     fetchStudentData();
   }, [fetchStudentData]);
 
-  const handleGenerateSummary = async (courseTitle: string) => {
-    setLoadingSummary(true);
-    setSelectedCourse(courseTitle);
-    setSummary('');
-    setSummaryError('');
-    try {
-      const result = await generateStudentProgressSummary(user, courseTitle);
-      setSummary(result);
-    } catch (e: any) {
-      setSummaryError(e.message || "予期せぬエラーが発生しました。");
-    } finally {
-      setLoadingSummary(false);
-    }
-  };
-
   const handleBookingSuccess = () => {
     fetchStudentData();
   };
@@ -84,8 +64,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 p-6 bg-white rounded-lg shadow">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="p-6 bg-white rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">私のコース</h2>
           {loadingCourses ? (
             <div className="flex justify-center items-center h-24"><Spinner /></div>
@@ -98,21 +78,13 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
               {enrolledCourses.map(course => (
                 <li key={course.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-gray-50 rounded-md">
                   <span className="text-gray-700 mb-2 sm:mb-0">{course.title}</span>
-                  <button
-                    onClick={() => handleGenerateSummary(course.title)}
-                    disabled={loadingSummary}
-                    className="px-3 py-1 text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed w-full sm:w-auto"
-                    title={"AIによる進捗サマリーを生成します"}
-                  >
-                    {loadingSummary && selectedCourse === course.title ? '生成中...' : 'AIサマリーを取得'}
-                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div className="lg:col-span-1 p-6 bg-white rounded-lg shadow">
+        <div className="p-6 bg-white rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">今後の予約</h2>
           {loadingBookings ? (
             <div className="flex justify-center items-center h-24"><Spinner /></div>
@@ -131,24 +103,6 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ user }) => {
                 </li>
               ))}
             </ul>
-          )}
-        </div>
-
-        <div className="lg:col-span-1 p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">AIによる進捗サマリー</h2>
-          {summaryError && <Alert message={summaryError} type="error" />}
-
-          {loadingSummary && <div className="flex justify-center items-center h-24"><Spinner /></div>}
-
-          {summary && !loadingSummary && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-              <h3 className="font-semibold text-blue-800 mb-2">{selectedCourse} のサマリー</h3>
-              <p className="text-gray-800 whitespace-pre-wrap">{summary}</p>
-            </div>
-          )}
-
-          {!summary && !loadingSummary && (
-            <p className="text-gray-500 text-center pt-8">コースの「AIサマリーを取得」をクリックして、進捗の概要を確認してください。</p>
           )}
         </div>
       </div>
