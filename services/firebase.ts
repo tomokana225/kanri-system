@@ -302,3 +302,21 @@ export const getChatMessages = async (chatId: string, onUpdate: (messages: Messa
   
   return unsubscribe;
 };
+
+// New function for ChatList component
+export const getUniqueChatPartnersForStudent = async (studentId: string): Promise<User[]> => {
+  await initializeFirebase();
+  const studentBookings = await getBookingsForUser(studentId, 'student');
+  
+  if (studentBookings.length === 0) {
+    return [];
+  }
+
+  const teacherIds = new Set(studentBookings.map(b => b.teacherId));
+  
+  const partnerPromises = Array.from(teacherIds).map(id => getUserProfile(id));
+  
+  const partners = await Promise.all(partnerPromises);
+
+  return partners.filter((p): p is User => p !== null);
+};

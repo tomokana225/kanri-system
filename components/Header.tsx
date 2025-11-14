@@ -12,9 +12,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
-    <header className="flex items-center justify-between p-4 bg-white shadow-md">
-      <div className="text-xl font-bold text-gray-800">
-        教育ポータル
+    <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+      <div className="text-2xl font-bold text-gray-800">
+        Classroom Connect
       </div>
       <div className="flex items-center space-x-4">
         <span className="text-gray-600 hidden sm:block">ようこそ、{user.name}さん</span>
