@@ -34,7 +34,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
           chatId,
           (newMessages) => {
             setMessages(newMessages);
-            if (loading) setLoading(false); // Only set loading false on first data load
+            // Only set loading false on first data load
+            if (loading) {
+                setLoading(false);
+            }
           },
           (error: any) => { // Error handler callback
             console.error("Chat Error:", error);
@@ -64,7 +67,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
         unsubscribe();
       }
     };
-  }, [chatId, loading]);
+  }, [chatId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
