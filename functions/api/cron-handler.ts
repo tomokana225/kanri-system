@@ -15,7 +15,8 @@
  * uses the client-side SDK for simplicity and compatibility with the existing setup.
  */
 
-import { initializeApp, FirebaseApp } from 'firebase/app';
+// Fix: Use Firebase compat imports to resolve module resolution errors.
+import { initializeApp, FirebaseApp } from 'firebase/compat/app';
 import { 
   getFirestore, 
   collection, 
@@ -24,9 +25,9 @@ import {
   getDocs, 
   writeBatch,
   Timestamp,
-  doc,
-  addDoc
-} from 'firebase/firestore';
+  doc
+} from 'firebase/compat/firestore';
+import { Booking } from '../../types';
 
 interface Env {
   FIREBASE_API_KEY: string;
@@ -74,7 +75,7 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
         );
 
         const querySnapshot = await getDocs(q);
-        const bookingsToRemind = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const bookingsToRemind = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
 
         if (bookingsToRemind.length === 0) {
             return new Response(JSON.stringify({ success: true, message: "No upcoming bookings to remind." }), {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { initializeFirebase, createUserProfile } from '../services/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+// Fix: Use Firebase compat imports to resolve module resolution errors.
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/compat/auth';
 import Alert from './Alert';
 import { User } from '../types';
 

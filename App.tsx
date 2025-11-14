@@ -7,7 +7,8 @@ import StudentPortal from './components/StudentPortal';
 import TeacherPortal from './components/TeacherPortal';
 import AdminPortal from './components/AdminPortal';
 import Spinner from './components/Spinner';
-import { onAuthStateChanged, signOut, Auth } from 'firebase/auth';
+// Fix: Use Firebase compat imports to resolve module resolution errors.
+import { onAuthStateChanged, signOut, Auth } from 'firebase/compat/auth';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);

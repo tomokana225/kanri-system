@@ -1,6 +1,7 @@
 // services/firebase.ts
-import { initializeApp, FirebaseApp, getApps } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+// Fix: Use Firebase compat imports to resolve module resolution errors.
+import { initializeApp, FirebaseApp, getApps } from 'firebase/compat/app';
+import { getAuth, Auth } from 'firebase/compat/auth';
 import { 
   getFirestore, 
   doc, 
@@ -19,7 +20,7 @@ import {
   Timestamp,
   runTransaction,
   onSnapshot
-} from 'firebase/firestore';
+} from 'firebase/compat/firestore';
 import { AppConfig, getConfig } from './config';
 import { User, Course, Booking, Availability, Notification, Message } from '../types';
 
