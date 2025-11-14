@@ -272,16 +272,14 @@ export const getChatMessages = async (chatId: string, onUpdate: (messages: Messa
   await initializeFirebase();
   const chatDocRef = db.collection('chats').doc(chatId);
   
-  // Ensure the chat document exists so security rules can check participants
+  // To ensure the subcollection listener can check permissions, we must ensure the parent chat document exists.
+  // We perform an "upsert" by setting the participants with `merge: true`.
+  // If the doc exists, it does nothing. If it doesn't, it creates it.
   try {
-    const chatDocSnap = await chatDocRef.get();
-    if (!chatDocSnap.exists) {
-        // Attempt to create it. This might fail if rules are restrictive,
-        // but it's necessary for the subcollection read rules to pass.
-        await chatDocRef.set({ participants: chatId.split('_').sort() });
-    }
+    await chatDocRef.set({ participants: chatId.split('_').sort() }, { merge: true });
   } catch (error: any) {
-    // If we can't even read/write the parent doc, the listener will also fail.
+    // This catch will now only trigger if the user genuinely doesn't have permission to create or write
+    // to the chat document, which would be a valid security rule denial.
     console.error("Failed to prepare chat document:", error);
     onError(error);
     return () => {}; // Return a no-op unsubscribe function
@@ -297,7 +295,7 @@ export const getChatMessages = async (chatId: string, onUpdate: (messages: Messa
     },
     (error: firebase.firestore.FirestoreError) => {
         console.error("Chat listener error:", error);
-        // Propagate the error to the component's state.
+        // This will now correctly report errors for the subcollection read.
         onError(error);
     }
   );
