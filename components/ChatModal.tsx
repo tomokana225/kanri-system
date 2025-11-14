@@ -28,7 +28,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
 
   useEffect(() => {
     const messagesToMark = messages.filter(
-      m => m.senderId === otherUser.id && !m.readBy.includes(currentUser.id)
+      m => m.senderId === otherUser.id && !(m.readBy?.includes(currentUser.id))
     );
     if (messagesToMark.length > 0) {
       markMessagesAsRead(chatId, messagesToMark.map(m => m.id), currentUser.id);
@@ -59,7 +59,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [chatId, loading]);
+  }, [chatId]); // Fix: removed loading from dependency array to prevent loop
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +109,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
           )}
           {messages.map(msg => {
             const isMe = msg.senderId === currentUser.id;
-            const isRead = msg.readBy.includes(otherUser.id!);
+            const isRead = msg.readBy?.includes(otherUser.id!);
 
             return (
                 <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
