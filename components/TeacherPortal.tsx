@@ -7,7 +7,6 @@ import TeacherAvailabilityModal from './TeacherAvailabilityModal';
 import FeedbackModal from './FeedbackModal';
 import ChatModal from './ChatModal';
 import { DeleteIcon, AddIcon, ChatIcon } from './icons';
-import { Timestamp } from 'firebase/firestore';
 
 interface TeacherPortalProps {
   user: User;
