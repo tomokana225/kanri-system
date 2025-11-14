@@ -1,5 +1,5 @@
 // services/firebase.ts
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, FirebaseApp, getApps } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -17,10 +17,11 @@ import {
   orderBy,
   limit,
   Timestamp,
-  runTransaction
+  runTransaction,
+  onSnapshot
 } from 'firebase/firestore';
 import { AppConfig, getConfig } from './config';
-import { User, Course, Booking, Availability, Notification } from '../types';
+import { User, Course, Booking, Availability, Notification, Message } from '../types';
 
 let firebaseApp: FirebaseApp;
 let auth: Auth;
@@ -40,7 +41,7 @@ export const initializeFirebase = async (): Promise<{ app: FirebaseApp, auth: Au
     try {
       const config: AppConfig = await getConfig();
       
-      if (!firebaseApp) {
+      if (!getApps().length) {
         firebaseApp = initializeApp(config.firebase);
         auth = getAuth(firebaseApp);
         db = getFirestore(firebaseApp);
@@ -89,9 +90,6 @@ export const updateUser = async (uid: string, userData: Partial<Omit<User, 'id'>
 
 export const deleteUser = async (uid: string): Promise<void> => {
     await initializeFirebase();
-    // This is a simplified delete. In a real app, you'd handle cleaning up related data.
-    // Also, deleting a user from Firestore doesn't delete them from Firebase Auth.
-    // That requires the Admin SDK on a backend.
     const userRef = doc(db, 'users', uid);
     await deleteDoc(userRef);
 };
@@ -150,21 +148,24 @@ export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>
 
 export const getAvailabilitiesForTeacher = async (teacherId: string): Promise<Availability[]> => {
     await initializeFirebase();
-    const q = query(
-      collection(db, 'availabilities'), 
-      where('teacherId', '==', teacherId),
-      where('startTime', '>=', Timestamp.now()),
-      orderBy('startTime', 'asc')
-    );
+    // Simplified query to avoid composite index requirement
+    const q = query(collection(db, 'availabilities'), where('teacherId', '==', teacherId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => docToObject<Availability>(doc));
+    const allAvailabilities = querySnapshot.docs.map(doc => docToObject<Availability>(doc));
+
+    // Filter and sort on the client-side
+    const now = new Date();
+    return allAvailabilities
+      .filter(a => a.startTime.toDate() >= now)
+      .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 };
 
 export const getAllAvailabilities = async (): Promise<Availability[]> => {
     await initializeFirebase();
-    const q = query(collection(db, 'availabilities'), orderBy('startTime', 'asc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => docToObject<Availability>(doc));
+    const snapshot = await getDocs(collection(db, 'availabilities'));
+    const allAvailabilities = snapshot.docs.map(doc => docToObject<Availability>(doc));
+    // Sort on client
+    return allAvailabilities.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 }
 
 export const deleteAvailability = async (availabilityId: string): Promise<void> => {
@@ -183,10 +184,20 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
             if (!availabilityDoc.exists() || availabilityDoc.data().status === 'booked') {
                 throw new Error("This slot is already booked or no longer available.");
             }
+            
+            // Set a 24-hour cancellation policy
+            const CANCELLATION_POLICY_HOURS = 24;
+            const deadline = new Date(bookingData.startTime.toDate().getTime());
+            deadline.setHours(deadline.getHours() - CANCELLATION_POLICY_HOURS);
+            const cancellationDeadline = Timestamp.fromDate(deadline);
 
             // Create new booking
             const newBookingRef = doc(collection(db, 'bookings'));
-            transaction.set(newBookingRef, bookingData);
+            transaction.set(newBookingRef, {
+                ...bookingData,
+                cancellationDeadline,
+                reminderSent: false
+            });
 
             // Update availability to 'booked'
             transaction.update(availabilityRef, { status: 'booked', studentId: bookingData.studentId });
@@ -208,16 +219,21 @@ export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Pro
 export const getBookingsForUser = async (userId: string, role: 'student' | 'teacher'): Promise<Booking[]> => {
     await initializeFirebase();
     const field = role === 'student' ? 'studentId' : 'teacherId';
-    const q = query(collection(db, 'bookings'), where(field, '==', userId), orderBy('startTime', 'desc'));
+    // Simplified query to avoid composite index requirement
+    const q = query(collection(db, 'bookings'), where(field, '==', userId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => docToObject<Booking>(doc));
+    const allBookings = querySnapshot.docs.map(doc => docToObject<Booking>(doc));
+    
+    // Sort on client-side
+    return allBookings.sort((a, b) => b.startTime.toMillis() - a.startTime.toMillis());
 };
 
 export const getAllBookings = async (): Promise<Booking[]> => {
     await initializeFirebase();
-    const q = query(collection(db, 'bookings'), orderBy('startTime', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => docToObject<Booking>(doc));
+    const snapshot = await getDocs(collection(db, 'bookings'));
+    const allBookings = snapshot.docs.map(doc => docToObject<Booking>(doc));
+    // Sort on client
+    return allBookings.sort((a,b) => b.startTime.toMillis() - a.startTime.toMillis());
 };
 
 export const updateBookingStatus = async (bookingId: string, status: Booking['status']): Promise<void> => {
@@ -235,12 +251,54 @@ export const submitFeedback = async (bookingId: string, feedback: { rating: numb
 // Notification Functions
 export const getUserNotifications = async (userId: string): Promise<Notification[]> => {
   await initializeFirebase();
+  // Simplified query to avoid composite index requirement
   const q = query(
     collection(db, 'notifications'), 
     where('userId', '==', userId),
-    orderBy('createdAt', 'desc'),
-    limit(20)
+    limit(50) // Fetch a bit more and sort/limit on client
   );
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => docToObject<Notification>(doc));
+  const allNotifications = querySnapshot.docs.map(doc => docToObject<Notification>(doc));
+
+  // Sort and limit on client-side
+  return allNotifications
+    .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+    .slice(0, 20);
+};
+
+// Chat Functions
+// Helper to create a consistent chat ID between two users
+export const getChatId = (uid1: string, uid2: string): string => {
+  return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+};
+
+export const sendChatMessage = async (chatId: string, message: Omit<Message, 'id' | 'createdAt'>): Promise<void> => {
+  await initializeFirebase();
+  const messagesCol = collection(db, 'chats', chatId, 'messages');
+  await addDoc(messagesCol, {
+    ...message,
+    createdAt: Timestamp.now(),
+  });
+};
+
+// Use onSnapshot for real-time updates. This returns an unsubscribe function for cleanup.
+export const getChatMessages = async (chatId: string, onUpdate: (messages: Message[]) => void): Promise<() => void> => {
+  await initializeFirebase();
+  const chatDocRef = doc(db, 'chats', chatId);
+  
+  // Ensure the chat document exists so security rules can check participants
+  const chatDocSnap = await getDoc(chatDocRef);
+  if (!chatDocSnap.exists()) {
+      await setDoc(chatDocRef, { participants: chatId.split('_').sort() });
+  }
+
+  const messagesCol = collection(db, 'chats', chatId, 'messages');
+  const q = query(messagesCol, orderBy('createdAt', 'asc'), limit(100));
+  
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const messages = querySnapshot.docs.map(d => docToObject<Message>(d));
+    onUpdate(messages);
+  });
+  
+  return unsubscribe;
 };

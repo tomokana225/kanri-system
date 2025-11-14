@@ -38,6 +38,8 @@ export interface Booking {
   startTime: Timestamp;
   endTime: Timestamp;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  cancellationDeadline?: Timestamp;
+  reminderSent?: boolean;
   feedback?: {
     rating: number;
     comment: string;
@@ -56,4 +58,17 @@ export interface Notification {
   read: boolean;
   createdAt: Timestamp;
   link?: string;
+}
+
+// For Chat feature
+export interface Message {
+    id: string;
+    text: string;
+    senderId: string;
+    createdAt: Timestamp;
+}
+
+export interface Chat {
+    id: string;
+    participants: string[]; // array of user IDs
 }

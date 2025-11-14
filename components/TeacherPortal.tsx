@@ -5,7 +5,8 @@ import Spinner from './Spinner';
 import Alert from './Alert';
 import TeacherAvailabilityModal from './TeacherAvailabilityModal';
 import FeedbackModal from './FeedbackModal';
-import { DeleteIcon, AddIcon } from './icons';
+import ChatModal from './ChatModal';
+import { DeleteIcon, AddIcon, ChatIcon } from './icons';
 
 interface TeacherPortalProps {
   user: User;
@@ -21,7 +22,10 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
   // Modal states
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [chatPartner, setChatPartner] = useState<Partial<User> | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -59,6 +63,11 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
     }
   };
 
+  const handleOpenChat = (booking: Booking) => {
+    setChatPartner({ id: booking.studentId, name: booking.studentName, role: 'student' });
+    setIsChatModalOpen(true);
+  };
+
   const upcomingBookings = bookings.filter(b => b.status === 'confirmed' && b.startTime.toDate() > new Date());
   const completedBookings = bookings.filter(b => b.status !== 'cancelled' && b.startTime.toDate() <= new Date());
   const availableSlots = availabilities.filter(a => a.status !== 'booked');
@@ -79,10 +88,15 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
               {upcomingBookings.length > 0 ? (
                 <ul className="divide-y divide-gray-200">
                   {upcomingBookings.map(b => (
-                    <li key={b.id} className="py-3">
-                      <p className="font-semibold">{b.courseTitle}</p>
-                      <p className="text-sm text-gray-600">生徒: {b.studentName}</p>
-                      <p className="text-sm text-gray-500">{b.startTime.toDate().toLocaleString('ja-JP')}</p>
+                    <li key={b.id} className="py-3 flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold">{b.courseTitle}</p>
+                        <p className="text-sm text-gray-600">生徒: {b.studentName}</p>
+                        <p className="text-sm text-gray-500">{b.startTime.toDate().toLocaleString('ja-JP')}</p>
+                      </div>
+                      <button onClick={() => handleOpenChat(b)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700">
+                          <ChatIcon />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -150,6 +164,7 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
       
       {isAvailabilityModalOpen && <TeacherAvailabilityModal user={user} onClose={() => setIsAvailabilityModalOpen(false)} onSaveSuccess={fetchData} />}
       {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="teacher" onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData} />}
+      {isChatModalOpen && chatPartner && <ChatModal currentUser={user} otherUser={chatPartner} onClose={() => setIsChatModalOpen(false)} />}
     </div>
   );
 };
