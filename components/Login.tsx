@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { initializeFirebase, createUserProfile } from '../services/firebase';
 // Fix: Use Firebase compat imports to resolve module resolution errors.
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/compat/auth';
+import 'firebase/compat/auth';
 import Alert from './Alert';
 import { User } from '../types';
 
@@ -20,11 +20,15 @@ const Login: React.FC = () => {
     try {
       const { auth } = await initializeFirebase();
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        await auth.signInWithEmailAndPassword(email, password);
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const firebaseUser = userCredential.user;
         
+        if (!firebaseUser) {
+            throw new Error("ユーザー作成に失敗しました。");
+        }
+
         // Check if the new user should be an admin
         const isAdmin = firebaseUser.email?.includes('admin@') ?? false;
         const role = isAdmin ? 'admin' : 'student';

@@ -16,18 +16,11 @@
  */
 
 // Fix: Use Firebase compat imports to resolve module resolution errors.
-import { initializeApp, FirebaseApp } from 'firebase/compat/app';
-import { 
-  getFirestore, 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  writeBatch,
-  Timestamp,
-  doc
-} from 'firebase/compat/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import { Booking } from '../../types';
+import { Timestamp } from 'firebase/firestore';
+
 
 interface Env {
   FIREBASE_API_KEY: string;
@@ -40,11 +33,15 @@ interface Env {
 }
 
 // Global scope to avoid re-initialization on every call in the same worker instance
-let firebaseApp: FirebaseApp;
-let db: any;
+let firebaseApp: firebase.app.App;
+let db: firebase.firestore.Firestore;
 
 const initializeFirebaseInWorker = (env: Env) => {
-    if (firebaseApp) return; // Already initialized
+    if (firebase.apps.length > 0) {
+        firebaseApp = firebase.app();
+        db = firebase.firestore();
+        return;
+    }
 
     const firebaseConfig = {
         apiKey: env.FIREBASE_API_KEY,
@@ -55,26 +52,25 @@ const initializeFirebaseInWorker = (env: Env) => {
         appId: env.FIREBASE_APP_ID,
         measurementId: env.FIREBASE_MEASUREMENT_ID,
     };
-    firebaseApp = initializeApp(firebaseConfig);
-    db = getFirestore(firebaseApp);
+    firebaseApp = firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
 }
 
 export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ env }) => {
     try {
         initializeFirebaseInWorker(env);
 
-        const now = Timestamp.now();
-        const twentyFourHoursFromNow = new Timestamp(now.seconds + 24 * 60 * 60, now.nanoseconds);
+        const now = firebase.firestore.Timestamp.now();
+        const twentyFourHoursFromNow = new firebase.firestore.Timestamp(now.seconds + 24 * 60 * 60, now.nanoseconds);
 
-        const bookingsRef = collection(db, 'bookings');
-        const q = query(bookingsRef, 
-            where('status', '==', 'confirmed'),
-            where('reminderSent', '==', false),
-            where('startTime', '>=', now),
-            where('startTime', '<=', twentyFourHoursFromNow)
-        );
+        const bookingsRef = db.collection('bookings');
+        const q = bookingsRef
+            .where('status', '==', 'confirmed')
+            .where('reminderSent', '==', false)
+            .where('startTime', '>=', now)
+            .where('startTime', '<=', twentyFourHoursFromNow);
 
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await q.get();
         const bookingsToRemind = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
 
         if (bookingsToRemind.length === 0) {
@@ -83,7 +79,7 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
             });
         }
         
-        const batch = writeBatch(db);
+        const batch = db.batch();
         let notificationCount = 0;
 
         for (const booking of bookingsToRemind) {
@@ -92,27 +88,27 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
             const teacherMessage = `リマインダー: ${booking.studentName}さんとの ${booking.courseTitle} の授業が ${startTime} に始まります。`;
             
             // Notification for student
-            const studentNotifRef = doc(collection(db, 'notifications'));
+            const studentNotifRef = db.collection('notifications').doc();
             batch.set(studentNotifRef, {
                 userId: booking.studentId,
                 message: studentMessage,
                 read: false,
-                createdAt: Timestamp.now(),
+                createdAt: firebase.firestore.Timestamp.now(),
                 link: `/my-portal`
             });
 
             // Notification for teacher
-            const teacherNotifRef = doc(collection(db, 'notifications'));
+            const teacherNotifRef = db.collection('notifications').doc();
             batch.set(teacherNotifRef, {
                 userId: booking.teacherId,
                 message: teacherMessage,
                 read: false,
-                createdAt: Timestamp.now(),
+                createdAt: firebase.firestore.Timestamp.now(),
                 link: `/teacher-dashboard`
             });
 
             // Mark booking as reminder sent
-            const bookingRef = doc(db, 'bookings', booking.id);
+            const bookingRef = db.collection('bookings').doc(booking.id);
             batch.update(bookingRef, { reminderSent: true });
 
             notificationCount += 2;

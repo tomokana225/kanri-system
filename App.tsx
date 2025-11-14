@@ -8,13 +8,14 @@ import TeacherPortal from './components/TeacherPortal';
 import AdminPortal from './components/AdminPortal';
 import Spinner from './components/Spinner';
 // Fix: Use Firebase compat imports to resolve module resolution errors.
-import { onAuthStateChanged, signOut, Auth } from 'firebase/compat/auth';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(null);
-  const [authInstance, setAuthInstance] = useState<Auth | null>(null);
+  const [authInstance, setAuthInstance] = useState<firebase.auth.Auth | null>(null);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -22,7 +23,7 @@ const App: React.FC = () => {
         const { auth } = await initializeFirebase();
         setAuthInstance(auth);
 
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: firebase.User | null) => {
           if (firebaseUser) {
             const userProfile = await getUserProfile(firebaseUser.uid);
             if (userProfile) {
@@ -74,7 +75,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (authInstance) {
-      await signOut(authInstance);
+      await authInstance.signOut();
     }
   };
 
