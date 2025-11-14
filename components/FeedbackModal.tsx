@@ -17,10 +17,18 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClos
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const isViewOnly = userRole === 'student';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userRole === 'student') return; // Students can only view
+    if (isViewOnly) return;
     
+    // Fix: Add validation to ensure a rating is selected before submitting.
+    if (rating === 0) {
+      setError('評価を星で選択してください（1〜5）。');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -28,13 +36,13 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClos
       onFeedbackSubmit();
       onClose();
     } catch (err: any) {
-      setError('フィードバックの送信に失敗しました。');
+      // Fix: Improve error message to be more informative.
+      const code = err.code ? ` (コード: ${err.code})` : '';
+      setError(`フィードバックの送信に失敗しました。${code}`);
     } finally {
       setLoading(false);
     }
   };
-
-  const isViewOnly = userRole === 'student';
 
   return (
     <Modal title="クラスのフィードバック" onClose={onClose}>
@@ -98,7 +106,8 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClos
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  // Fix: Disable button if no rating is selected.
+                  disabled={loading || rating === 0}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
                   {loading ? '送信中...' : 'フィードバックを送信'}

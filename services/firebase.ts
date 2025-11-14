@@ -268,23 +268,39 @@ export const sendChatMessage = async (chatId: string, message: Omit<Message, 'id
 };
 
 // Use onSnapshot for real-time updates. This returns an unsubscribe function for cleanup.
-export const getChatMessages = async (chatId: string, onUpdate: (messages: Message[]) => void): Promise<() => void> => {
+export const getChatMessages = async (chatId: string, onUpdate: (messages: Message[]) => void, onError: (error: firebase.firestore.FirestoreError) => void): Promise<() => void> => {
   await initializeFirebase();
   const chatDocRef = db.collection('chats').doc(chatId);
   
   // Ensure the chat document exists so security rules can check participants
-  const chatDocSnap = await chatDocRef.get();
-  if (!chatDocSnap.exists) {
-      await chatDocRef.set({ participants: chatId.split('_').sort() });
+  try {
+    const chatDocSnap = await chatDocRef.get();
+    if (!chatDocSnap.exists) {
+        // Attempt to create it. This might fail if rules are restrictive,
+        // but it's necessary for the subcollection read rules to pass.
+        await chatDocRef.set({ participants: chatId.split('_').sort() });
+    }
+  } catch (error: any) {
+    // If we can't even read/write the parent doc, the listener will also fail.
+    console.error("Failed to prepare chat document:", error);
+    onError(error);
+    return () => {}; // Return a no-op unsubscribe function
   }
 
   const messagesCol = db.collection('chats').doc(chatId).collection('messages');
   const q = messagesCol.orderBy('createdAt', 'asc').limit(100);
   
-  const unsubscribe = q.onSnapshot((querySnapshot: firebase.firestore.QuerySnapshot) => {
-    const messages = querySnapshot.docs.map((d: firebase.firestore.QueryDocumentSnapshot) => docToObject<Message>(d));
-    onUpdate(messages);
-  });
+  const unsubscribe = q.onSnapshot(
+    (querySnapshot: firebase.firestore.QuerySnapshot) => {
+        const messages = querySnapshot.docs.map((d: firebase.firestore.QueryDocumentSnapshot) => docToObject<Message>(d));
+        onUpdate(messages);
+    },
+    (error: firebase.firestore.FirestoreError) => {
+        console.error("Chat listener error:", error);
+        // Propagate the error to the component's state.
+        onError(error);
+    }
+  );
   
   return unsubscribe;
 };

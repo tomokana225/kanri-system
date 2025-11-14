@@ -27,15 +27,31 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     let unsubscribe: (() => void) | null = null;
 
     const setupChatListener = async () => {
+      setLoading(true);
+      setError(''); // Reset error on new setup
       try {
-        setLoading(true);
-        unsubscribe = await getChatMessages(chatId, (newMessages) => {
-          setMessages(newMessages);
-          setLoading(false);
-        });
+        unsubscribe = await getChatMessages(
+          chatId,
+          (newMessages) => {
+            setMessages(newMessages);
+            if (loading) setLoading(false); // Only set loading false on first data load
+          },
+          (error: any) => { // Error handler callback
+            console.error("Chat Error:", error);
+            if (error.code === 'permission-denied') {
+              setError('チャットへのアクセス権限がありません。セキュリティ設定を確認してください。');
+            } else if (error.code === 'failed-precondition') {
+              setError('チャットの読み込みに失敗しました。必要なデータベースインデックスがありません。');
+            } else {
+              setError(`チャットの読み込み中にエラーが発生しました。(コード: ${error.code})`);
+            }
+            setLoading(false);
+          }
+        );
       } catch (e: any) {
-        setError('チャットの読み込みに失敗しました。');
-        console.error(e);
+        // This outer catch is for initial setup errors before the listener is attached
+        setError('チャットのセットアップに失敗しました。');
+        console.error("Chat Setup Error:", e);
         setLoading(false);
       }
     };
@@ -48,7 +64,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
         unsubscribe();
       }
     };
-  }, [chatId]);
+  }, [chatId, loading]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +89,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
       <div className="flex flex-col h-96">
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 rounded-md mb-4 space-y-4">
           {loading && <div className="flex justify-center items-center h-full"><Spinner /></div>}
-          {error && <p className="text-red-500">{error}</p>}
-          {!loading && messages.length === 0 && (
+          {error && <p className="text-red-500 text-center">{error}</p>}
+          {!loading && !error && messages.length === 0 && (
             <div className="flex justify-center items-center h-full">
                 <p className="text-gray-500">まだメッセージはありません。</p>
             </div>
@@ -96,10 +112,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
             placeholder="メッセージを入力..."
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             aria-label="New message"
+            disabled={loading || !!error}
           />
           <button
             type="submit"
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            disabled={loading || !!error}
           >
             送信
           </button>
