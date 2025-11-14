@@ -33,12 +33,10 @@ interface Env {
 }
 
 // Global scope to avoid re-initialization on every call in the same worker instance
-let firebaseApp: firebase.app.App;
 let db: firebase.firestore.Firestore;
 
 const initializeFirebaseInWorker = (env: Env) => {
     if (firebase.apps.length > 0) {
-        firebaseApp = firebase.app();
         db = firebase.firestore();
         return;
     }
@@ -52,7 +50,7 @@ const initializeFirebaseInWorker = (env: Env) => {
         appId: env.FIREBASE_APP_ID,
         measurementId: env.FIREBASE_MEASUREMENT_ID,
     };
-    firebaseApp = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
 }
 
