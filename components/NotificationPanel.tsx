@@ -1,32 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Notification, User } from '../types';
+import React from 'react';
+import { Notification } from '../types';
 import { CloseIcon } from './icons';
 import Spinner from './Spinner';
-import { getUserNotifications } from '../services/firebase';
 
 interface NotificationPanelProps {
-    user: User;
+    notifications: Notification[];
     onClose: () => void;
 }
 
-const NotificationPanel: React.FC<NotificationPanelProps> = ({ user, onClose }) => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchNotifications = async () => {
-            setLoading(true);
-            try {
-                const data = await getUserNotifications(user.id);
-                setNotifications(data);
-            } catch (e) {
-                console.error("通知の取得に失敗:", e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchNotifications();
-    }, [user.id]);
+const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, onClose }) => {
+    const loading = !Array.isArray(notifications);
 
     return (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-10 border border-gray-200">

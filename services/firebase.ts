@@ -3,6 +3,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
+import 'firebase/compat/storage';
 
 import { AppConfig, getConfig } from './config';
 import { User, Course, Booking, Availability, Notification, Message } from '../types';
@@ -10,13 +11,14 @@ import { User, Course, Booking, Availability, Notification, Message } from '../t
 let firebaseApp: firebase.app.App;
 let auth: firebase.auth.Auth;
 let db: firebase.firestore.Firestore;
+let storage: firebase.storage.Storage;
 
-let firebaseInitializationPromise: Promise<{ app: firebase.app.App, auth: firebase.auth.Auth, db: firebase.firestore.Firestore }> | null = null;
+let firebaseInitializationPromise: Promise<{ app: firebase.app.App, auth: firebase.auth.Auth, db: firebase.firestore.Firestore, storage: firebase.storage.Storage }> | null = null;
 
 // Helper to convert Firestore docs to objects
 const docToObject = <T>(d: firebase.firestore.DocumentSnapshot): T => ({ id: d.id, ...d.data() } as unknown as T);
 
-export const initializeFirebase = async (): Promise<{ app: firebase.app.App, auth: firebase.auth.Auth, db: firebase.firestore.Firestore }> => {
+export const initializeFirebase = async (): Promise<{ app: firebase.app.App, auth: firebase.auth.Auth, db: firebase.firestore.Firestore, storage: firebase.storage.Storage }> => {
   if (firebaseInitializationPromise) {
     return firebaseInitializationPromise;
   }
@@ -29,12 +31,14 @@ export const initializeFirebase = async (): Promise<{ app: firebase.app.App, aut
         firebaseApp = firebase.initializeApp(config.firebase);
         auth = firebase.auth();
         db = firebase.firestore();
+        storage = firebase.storage();
       } else {
         firebaseApp = firebase.app();
         auth = firebase.auth();
         db = firebase.firestore();
+        storage = firebase.storage();
       }
-      return { app: firebaseApp, auth, db };
+      return { app: firebaseApp, auth, db, storage };
     } catch (error) {
       console.error("Firebase initialization failed:", error);
       // Let the caller handle the error display
@@ -164,6 +168,7 @@ export const deleteAvailability = async (availabilityId: string): Promise<void> 
 // Booking Functions
 export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
     await initializeFirebase();
+    const batch = db.batch();
     try {
         await db.runTransaction(async (transaction) => {
             const availabilityRef = db.collection('availabilities').doc(availabilityId);
@@ -173,31 +178,43 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
                 throw new Error("This slot is already booked or no longer available.");
             }
             
-            // Set a 24-hour cancellation policy
             const CANCELLATION_POLICY_HOURS = 24;
             const deadline = new Date(bookingData.startTime.toDate().getTime());
             deadline.setHours(deadline.getHours() - CANCELLATION_POLICY_HOURS);
             const cancellationDeadline = firebase.firestore.Timestamp.fromDate(deadline);
 
-            // Create new booking
             const newBookingRef = db.collection('bookings').doc();
-            transaction.set(newBookingRef, {
-                ...bookingData,
-                cancellationDeadline,
-                reminderSent: false
-            });
-
-            // Update availability to 'booked'
+            transaction.set(newBookingRef, { ...bookingData, cancellationDeadline, reminderSent: false });
             transaction.update(availabilityRef, { status: 'booked', studentId: bookingData.studentId });
         });
+        
+        // After transaction succeeds, create notifications in a batch
+        const studentNotifRef = db.collection('notifications').doc();
+        batch.set(studentNotifRef, {
+            userId: bookingData.studentId,
+            message: `「${bookingData.courseTitle}」の予約が確定しました。`,
+            read: false,
+            createdAt: firebase.firestore.Timestamp.now(),
+        });
+
+        const teacherNotifRef = db.collection('notifications').doc();
+        batch.set(teacherNotifRef, {
+            userId: bookingData.teacherId,
+            message: `${bookingData.studentName}さんから「${bookingData.courseTitle}」の新しい予約が入りました。`,
+            read: false,
+            createdAt: firebase.firestore.Timestamp.now(),
+        });
+        await batch.commit();
+
     } catch (e) {
         console.error("Booking transaction failed: ", e);
         if (e instanceof Error && e.message.includes('already booked')) {
             throw new Error('申し訳ありませんが、この時間枠はたった今予約されました。');
         }
-        throw e; // re-throw other errors
+        throw e;
     }
 };
+
 
 export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Promise<void> => {
   await initializeFirebase();
@@ -207,12 +224,10 @@ export const createManualBooking = async (bookingData: Omit<Booking, 'id'>): Pro
 export const getBookingsForUser = async (userId: string, role: 'student' | 'teacher'): Promise<Booking[]> => {
     await initializeFirebase();
     const field = role === 'student' ? 'studentId' : 'teacherId';
-    // Simplified query to avoid composite index requirement
     const q = db.collection('bookings').where(field, '==', userId);
     const querySnapshot = await q.get();
     const allBookings = querySnapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Booking>(doc));
     
-    // Sort on client-side
     return allBookings.sort((a, b) => b.startTime.toMillis() - a.startTime.toMillis());
 };
 
@@ -220,7 +235,6 @@ export const getAllBookings = async (): Promise<Booking[]> => {
     await initializeFirebase();
     const snapshot = await db.collection('bookings').get();
     const allBookings = snapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Booking>(doc));
-    // Sort on client
     return allBookings.sort((a,b) => b.startTime.toMillis() - a.startTime.toMillis());
 };
 
@@ -228,6 +242,27 @@ export const updateBookingStatus = async (bookingId: string, status: Booking['st
     await initializeFirebase();
     const bookingRef = db.collection('bookings').doc(bookingId);
     await bookingRef.update({ status });
+
+    if (status === 'cancelled') {
+        const bookingDoc = await bookingRef.get();
+        if (bookingDoc.exists) {
+            const booking = bookingDoc.data() as Booking;
+            const batch = db.batch();
+            const studentNotifRef = db.collection('notifications').doc();
+            batch.set(studentNotifRef, {
+                userId: booking.studentId,
+                message: `「${booking.courseTitle}」の予約がキャンセルされました。`,
+                read: false, createdAt: firebase.firestore.Timestamp.now()
+            });
+            const teacherNotifRef = db.collection('notifications').doc();
+            batch.set(teacherNotifRef, {
+                userId: booking.teacherId,
+                message: `${booking.studentName}さんが「${booking.courseTitle}」の予約をキャンセルしました。`,
+                read: false, createdAt: firebase.firestore.Timestamp.now()
+            });
+            await batch.commit();
+        }
+    }
 };
 
 export const submitFeedback = async (bookingId: string, feedback: { rating: number; comment: string }): Promise<void> => {
@@ -237,73 +272,132 @@ export const submitFeedback = async (bookingId: string, feedback: { rating: numb
 };
 
 // Notification Functions
-export const getUserNotifications = async (userId: string): Promise<Notification[]> => {
-  await initializeFirebase();
-  // Simplified query to avoid composite index requirement
+export const subscribeToUserNotifications = (
+  userId: string,
+  onUpdate: (notifications: Notification[]) => void
+): (() => void) => {
+  initializeFirebase();
   const q = db.collection('notifications')
     .where('userId', '==', userId)
-    .limit(50);
-  const querySnapshot = await q.get();
-  const allNotifications = querySnapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Notification>(doc));
-
-  // Sort and limit on client-side
-  return allNotifications
-    .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
-    .slice(0, 20);
+    .orderBy('createdAt', 'desc')
+    .limit(20);
+  
+  return q.onSnapshot(snapshot => {
+    const notifications = snapshot.docs.map(doc => docToObject<Notification>(doc));
+    onUpdate(notifications);
+  });
 };
 
+export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
+  await initializeFirebase();
+  const notificationsRef = db.collection('notifications');
+  const q = notificationsRef.where('userId', '==', userId).where('read', '==', false);
+  const snapshot = await q.get();
+
+  if (snapshot.empty) return;
+
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => {
+    batch.update(doc.ref, { read: true });
+  });
+  await batch.commit();
+};
+
+
 // Chat Functions
-// Helper to create a consistent chat ID between two users
 export const getChatId = (uid1: string, uid2: string): string => {
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 };
 
-export const sendChatMessage = async (chatId: string, message: Omit<Message, 'id' | 'createdAt'>): Promise<void> => {
+export const sendChatMessage = async (
+  chatId: string,
+  message: Partial<Omit<Message, 'id' | 'createdAt'>>,
+  sender: User,
+  recipient: Partial<User>
+): Promise<void> => {
   await initializeFirebase();
+  const batch = db.batch();
   const messagesCol = db.collection('chats').doc(chatId).collection('messages');
-  await messagesCol.add({
+  const newMsgRef = messagesCol.doc();
+  
+  batch.set(newMsgRef, {
     ...message,
+    senderId: sender.id,
     createdAt: firebase.firestore.Timestamp.now(),
+    readBy: [sender.id], // Initially only read by the sender
   });
+
+  // Create a notification for the recipient
+  const notifRef = db.collection('notifications').doc();
+  const notifMessage = message.type === 'image' ? `${sender.name}さんから写真が届きました。` : `${sender.name}さんから新しいメッセージです。`;
+  batch.set(notifRef, {
+    userId: recipient.id,
+    message: notifMessage,
+    read: false,
+    createdAt: firebase.firestore.Timestamp.now(),
+    link: `/chat/${sender.id}` // Example link to open chat
+  });
+  
+  await batch.commit();
 };
 
-// Use onSnapshot for real-time updates. This returns an unsubscribe function for cleanup.
-export const getChatMessages = async (chatId: string, onUpdate: (messages: Message[]) => void, onError: (error: firebase.firestore.FirestoreError) => void): Promise<() => void> => {
+export const getChatMessages = async (
+  chatId: string,
+  onUpdate: (messages: Message[]) => void,
+  onError: (error: firebase.firestore.FirestoreError) => void
+): Promise<() => void> => {
   await initializeFirebase();
   const chatDocRef = db.collection('chats').doc(chatId);
   
-  // To ensure the subcollection listener can check permissions, we must ensure the parent chat document exists.
-  // We perform an "upsert" by setting the participants with `merge: true`.
-  // If the doc exists, it does nothing. If it doesn't, it creates it.
   try {
     await chatDocRef.set({ participants: chatId.split('_').sort() }, { merge: true });
   } catch (error: any) {
-    // This catch will now only trigger if the user genuinely doesn't have permission to create or write
-    // to the chat document, which would be a valid security rule denial.
     console.error("Failed to prepare chat document:", error);
     onError(error);
-    return () => {}; // Return a no-op unsubscribe function
+    return () => {};
   }
 
-  const messagesCol = db.collection('chats').doc(chatId).collection('messages');
+  const messagesCol = chatDocRef.collection('messages');
   const q = messagesCol.orderBy('createdAt', 'asc').limit(100);
   
-  const unsubscribe = q.onSnapshot(
-    (querySnapshot: firebase.firestore.QuerySnapshot) => {
-        const messages = querySnapshot.docs.map((d: firebase.firestore.QueryDocumentSnapshot) => docToObject<Message>(d));
+  return q.onSnapshot(
+    (querySnapshot) => {
+        const messages = querySnapshot.docs.map((d) => docToObject<Message>(d));
         onUpdate(messages);
     },
-    (error: firebase.firestore.FirestoreError) => {
+    (error) => {
         console.error("Chat listener error:", error);
-        // This will now correctly report errors for the subcollection read.
         onError(error);
     }
   );
-  
-  return unsubscribe;
 };
 
-// New function for ChatList component
+export const markMessagesAsRead = async (
+    chatId: string,
+    messageIds: string[],
+    userId: string
+): Promise<void> => {
+    await initializeFirebase();
+    const batch = db.batch();
+    const messagesRef = db.collection('chats').doc(chatId).collection('messages');
+    messageIds.forEach(msgId => {
+        const docRef = messagesRef.doc(msgId);
+        batch.update(docRef, {
+            readBy: firebase.firestore.FieldValue.arrayUnion(userId)
+        });
+    });
+    await batch.commit();
+};
+
+export const uploadImageToStorage = async (file: File, chatId: string): Promise<string> => {
+    await initializeFirebase();
+    const filePath = `chat_images/${chatId}/${Date.now()}_${file.name}`;
+    const fileRef = storage.ref(filePath);
+    await fileRef.put(file);
+    return fileRef.getDownloadURL();
+};
+
+
 export const getUniqueChatPartnersForStudent = async (studentId: string): Promise<User[]> => {
   await initializeFirebase();
   const studentBookings = await getBookingsForUser(studentId, 'student');

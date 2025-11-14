@@ -63,9 +63,12 @@ export interface Notification {
 // For Chat feature
 export interface Message {
     id: string;
-    text: string;
     senderId: string;
     createdAt: Timestamp;
+    type: 'text' | 'image';
+    text?: string;
+    imageUrl?: string;
+    readBy: string[]; // Array of user IDs who have read the message
 }
 
 export interface Chat {
