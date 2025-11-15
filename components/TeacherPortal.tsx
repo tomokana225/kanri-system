@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Booking, Availability, Notification } from '../types';
 import { getBookingsForUser, getAvailabilitiesForTeacher, deleteAvailability } from '../services/firebase';
 import Spinner from './Spinner';
@@ -8,6 +8,7 @@ import FeedbackModal from './FeedbackModal';
 import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
+import Calendar from './Calendar'; // Import Calendar
 import { DeleteIcon, AddIcon, ChatIcon, CalendarIcon, ClockIcon, CourseIcon } from './icons';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
@@ -28,6 +29,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeView, setActiveView] = useState<TeacherView>('schedule');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   
   // Modal states
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
@@ -81,7 +83,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     try {
       const [teacherBookings, teacherAvailabilities] = await Promise.all([
         getBookingsForUser(user.id, 'teacher'),
-        getAvailabilitiesForTeacher(user.id)
+        getAvailabilitiesForTeacher(user.id, true) // Fetch all availabilities for calendar
       ]);
       setBookings(teacherBookings);
       setAvailabilities(teacherAvailabilities);
@@ -112,6 +114,23 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
       <span className="ml-3">{label}</span>
     </button>
   );
+
+  const slotsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return availabilities
+      .filter(a => a.startTime.toDate().toDateString() === selectedDate.toDateString())
+      .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+  }, [selectedDate, availabilities]);
+
+  const studentNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    bookings.forEach(b => {
+      if (b.studentId && b.studentName) {
+        map.set(b.studentId, b.studentName);
+      }
+    });
+    return map;
+  }, [bookings]);
 
   const renderContent = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
@@ -146,14 +165,6 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
           </div>
         );
       case 'availability':
-        const availabilitiesByDate = availabilities
-            .filter(a => a.status !== 'booked')
-            .reduce((acc, curr) => {
-            const date = curr.startTime.toDate().toLocaleDateString('ja-JP');
-            if (!acc[date]) acc[date] = [];
-            acc[date].push(curr);
-            return acc;
-            }, {} as Record<string, Availability[]>);
         const handleDeleteAvailability = async (id: string) => {
             if (window.confirm('この空き時間を削除しますか？')) {
                 try {
@@ -165,30 +176,50 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
             }
         };
         return (
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex justify-between items-center mb-4">
+          <div className="space-y-6">
+             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold text-gray-800">空き時間管理</h1>
               <button onClick={() => setIsAvailabilityModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
                 <AddIcon /> <span>空き時間を登録</span>
               </button>
             </div>
-            {Object.keys(availabilitiesByDate).length > 0 ? (
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-                {Object.entries(availabilitiesByDate).map(([date, slots]) => (
-                  <div key={date}>
-                    <h3 className="font-semibold text-gray-700 mb-2">{date}</h3>
-                    <ul className="divide-y divide-gray-100 border rounded-lg">
-                      {slots.map(a => (
-                        <li key={a.id} className="px-4 py-3 flex justify-between items-center">
-                          <p className="text-gray-800">{a.startTime.toDate().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'})}</p>
-                          <button onClick={() => handleDeleteAvailability(a.id)} className="text-red-500 hover:text-red-700 transition-colors"><DeleteIcon /></button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+               <Calendar 
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                  availabilityData={availabilities}
+               />
+               <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg h-full">
+                  <h3 className="font-semibold text-xl text-gray-800 mb-4 border-b pb-3">
+                      {selectedDate ? selectedDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) : '日付を選択'}
+                  </h3>
+                   {slotsForSelectedDate.length > 0 ? (
+                      <ul className="space-y-3 max-h-[450px] overflow-y-auto -mr-2 pr-2">
+                          {slotsForSelectedDate.map(slot => (
+                              <li key={slot.id} className="p-3 flex justify-between items-center bg-gray-50 rounded-lg">
+                                  <p className="font-mono text-lg text-gray-900">{slot.startTime.toDate().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'})}</p>
+                                  {slot.status === 'available' ? (
+                                      <div className="flex items-center gap-4">
+                                          <span className="text-sm font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-full">空き</span>
+                                          <button onClick={() => handleDeleteAvailability(slot.id)} className="text-red-500 hover:text-red-700 transition-colors"><DeleteIcon /></button>
+                                      </div>
+                                  ) : (
+                                      <div className="text-right">
+                                          <span className="text-sm font-medium text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">予約済み</span>
+                                          <p className="text-sm text-gray-600 mt-1">{studentNameMap.get(slot.studentId!) || '不明な学生'}</p>
+                                      </div>
+                                  )}
+                              </li>
+                          ))}
+                      </ul>
+                  ) : (
+                      <div className="flex items-center justify-center h-full min-h-[200px]">
+                          <p className="text-gray-500 text-center">{selectedDate ? 'この日の登録はありません。' : 'カレンダーから日付を選択してください。'}</p>
+                      </div>
+                  )}
               </div>
-            ) : <p className="text-gray-500">登録済みの空き時間はありません。</p>}
+            </div>
           </div>
         );
       case 'completed':

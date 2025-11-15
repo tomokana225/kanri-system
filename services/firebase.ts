@@ -181,14 +181,17 @@ export const addRecurringAvailabilities = async (
 };
 
 
-export const getAvailabilitiesForTeacher = async (teacherId: string): Promise<Availability[]> => {
+export const getAvailabilitiesForTeacher = async (teacherId: string, fetchAll: boolean = false): Promise<Availability[]> => {
     await initializeFirebase();
-    // Simplified query to avoid composite index requirement
     const q = db.collection('availabilities').where('teacherId', '==', teacherId);
     const querySnapshot = await q.get();
     const allAvailabilities = querySnapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Availability>(doc));
 
-    // Filter and sort on the client-side
+    if (fetchAll) {
+      return allAvailabilities.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+    }
+    
+    // Default behavior: filter and sort on the client-side for future, available slots
     const now = new Date();
     return allAvailabilities
       .filter(a => a.startTime.toDate() >= now)
