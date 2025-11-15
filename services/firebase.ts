@@ -141,14 +141,13 @@ export const addAvailabilities = async (availabilities: Omit<Availability, 'id'>
 export const addRecurringAvailabilities = async (
   teacherId: string,
   daysOfWeek: number[], // 0=Sun, 1=Mon, ..., 6=Sat
-  time: string, // "HH:mm"
+  times: string[], // "HH:mm" array
   startDate: Date,
   endDate: Date
 ): Promise<void> => {
   await initializeFirebase();
   const batch = db.batch();
   const availabilitiesCol = db.collection('availabilities');
-  const [hours, minutes] = time.split(':').map(Number);
 
   let currentDate = new Date(startDate);
   // Normalize start date to the beginning of the day to avoid time zone issues
@@ -157,20 +156,23 @@ export const addRecurringAvailabilities = async (
 
   while (currentDate <= endDate) {
     if (daysOfWeek.includes(currentDate.getDay())) {
-      const startTime = new Date(currentDate);
-      startTime.setHours(hours, minutes);
+      for (const time of times) {
+        const [hours, minutes] = time.split(':').map(Number);
+        const startTime = new Date(currentDate);
+        startTime.setHours(hours, minutes);
 
-      const endTime = new Date(startTime);
-      endTime.setHours(hours + 1, minutes);
+        const endTime = new Date(startTime);
+        endTime.setHours(hours + 1, minutes);
 
-      const newAvailRef = availabilitiesCol.doc();
-      const availability: Omit<Availability, 'id'> = {
-        teacherId: teacherId,
-        startTime: firebase.firestore.Timestamp.fromDate(startTime),
-        endTime: firebase.firestore.Timestamp.fromDate(endTime),
-        status: 'available',
-      };
-      batch.set(newAvailRef, availability);
+        const newAvailRef = availabilitiesCol.doc();
+        const availability: Omit<Availability, 'id'> = {
+          teacherId: teacherId,
+          startTime: firebase.firestore.Timestamp.fromDate(startTime),
+          endTime: firebase.firestore.Timestamp.fromDate(endTime),
+          status: 'available',
+        };
+        batch.set(newAvailRef, availability);
+      }
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }

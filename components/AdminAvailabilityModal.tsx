@@ -28,7 +28,7 @@ const AdminAvailabilityModal: React.FC<AdminAvailabilityModalProps> = ({ teacher
   
   // Recurring mode states
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
-  const [recurringTime, setRecurringTime] = useState<string>('09:00');
+  const [recurringTimes, setRecurringTimes] = useState<string[]>([]);
   const [endDate, setEndDate] = useState<string>('');
 
   const [loading, setLoading] = useState(false);
@@ -40,6 +40,10 @@ const AdminAvailabilityModal: React.FC<AdminAvailabilityModalProps> = ({ teacher
   
   const handleDayToggle = (dayIndex: number) => {
     setDaysOfWeek(prev => prev.includes(dayIndex) ? prev.filter(d => d !== dayIndex) : [...prev, dayIndex]);
+  };
+
+  const handleRecurringTimeToggle = (time: string) => {
+    setRecurringTimes(prev => prev.includes(time) ? prev.filter(t => t !== time) : [...prev, time]);
   };
 
   const handleSubmit = async () => {
@@ -69,10 +73,10 @@ const AdminAvailabilityModal: React.FC<AdminAvailabilityModalProps> = ({ teacher
         });
         await addAvailabilities(newAvailabilities);
       } else { // Recurring mode
-        if (daysOfWeek.length === 0 || !recurringTime || !endDate) {
+        if (daysOfWeek.length === 0 || recurringTimes.length === 0 || !endDate) {
           throw new Error('曜日、時間、繰り返し終了日をすべて選択してください。');
         }
-        await addRecurringAvailabilities(selectedTeacherId, daysOfWeek, recurringTime, new Date(), new Date(endDate));
+        await addRecurringAvailabilities(selectedTeacherId, daysOfWeek, recurringTimes, new Date(), new Date(endDate));
       }
       onSaveSuccess();
       onClose();
@@ -105,26 +109,28 @@ const AdminAvailabilityModal: React.FC<AdminAvailabilityModalProps> = ({ teacher
   const renderRecurringMode = () => (
     <div className="space-y-4 mt-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">曜日を選択 (複数可)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">ステップ1: 曜日を選択 (複数可)</label>
         <div className="grid grid-cols-4 gap-2">
           {weekdays.map((day, index) => (
-            <button key={index} onClick={() => handleDayToggle(index)} className={`p-2 border rounded-md transition-colors text-sm ${daysOfWeek.includes(index) ? 'bg-blue-500 text-white' : 'hover:bg-blue-100'}`}>
+            <button key={index} type="button" onClick={() => handleDayToggle(index)} className={`p-2 border rounded-md transition-colors text-sm ${daysOfWeek.includes(index) ? 'bg-blue-500 text-white' : 'hover:bg-blue-100'}`}>
               {day}
             </button>
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="recurring-time" className="block text-sm font-medium text-gray-700">時間</label>
-          <select id="recurring-time" value={recurringTime} onChange={e => setRecurringTime(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-            {timeSlots.map(time => <option key={time} value={time}>{time}</option>)}
-          </select>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">ステップ2: 時間を選択 (複数可)</label>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {timeSlots.map(time => (
+                <button key={time} type="button" onClick={() => handleRecurringTimeToggle(time)} className={`p-2 border rounded-md transition-colors ${recurringTimes.includes(time) ? 'bg-blue-500 text-white' : 'hover:bg-blue-100'}`}>
+                    {time}
+                </button>
+            ))}
         </div>
-        <div>
-          <label htmlFor="end-date" className="block text-sm font-medium text-gray-700">繰り返し終了日</label>
-          <input type="date" id="end-date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-        </div>
+      </div>
+       <div>
+        <label htmlFor="end-date" className="block text-sm font-medium text-gray-700">ステップ3: 繰り返し終了日</label>
+        <input type="date" id="end-date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
       </div>
     </div>
   );
