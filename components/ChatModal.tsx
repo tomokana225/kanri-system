@@ -38,14 +38,16 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
-    setLoading(true);
+    const initialLoading = messages.length === 0;
+    if(initialLoading) setLoading(true);
+    
     setError('');
     
     getChatMessages(
       chatId,
       (newMessages) => {
         setMessages(newMessages);
-        if (loading) setLoading(false);
+        setLoading(false);
       },
       (err) => {
         console.error("Chat Error:", err);
@@ -59,7 +61,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [chatId]); // Fix: removed loading from dependency array to prevent loop
+  }, [chatId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
