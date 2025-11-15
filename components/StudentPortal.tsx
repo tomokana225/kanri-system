@@ -8,7 +8,7 @@ import FeedbackModal from './FeedbackModal';
 import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
-import { ChatIcon, CalendarIcon, ClockIcon } from './icons';
+import { ChatIcon, CalendarIcon, ClockIcon, AddIcon } from './icons';
 
 interface PortalProps {
   user: User;
@@ -115,12 +115,6 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
         <div className="space-y-8">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">予約管理</h1>
-                <button
-                onClick={() => setIsBookingModalOpen(true)}
-                className="px-6 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
-                >
-                クラスを予約
-                </button>
             </div>
             {error && <Alert message={error} type="error" />}
 
@@ -211,8 +205,22 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   return (
     <div className="flex w-full h-full">
       <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen}>
-          <NavLink view="bookings" label="予約管理" icon={<CalendarIcon />} />
-          <NavLink view="chat" label="教師とのチャット" icon={<ChatIcon />} />
+          <div className="space-y-2">
+            <NavLink view="bookings" label="予約管理" icon={<CalendarIcon />} />
+            <NavLink view="chat" label="教師とのチャット" icon={<ChatIcon />} />
+          </div>
+          <div className="mt-auto pt-4 border-t border-gray-200">
+             <button
+                onClick={() => {
+                    setIsBookingModalOpen(true);
+                    setIsSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
+                >
+                <AddIcon />
+                <span>クラスを予約</span>
+            </button>
+          </div>
       </Sidebar>
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {loading ? (
