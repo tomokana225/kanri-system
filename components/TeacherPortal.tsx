@@ -6,18 +6,25 @@ import Alert from './Alert';
 import TeacherAvailabilityModal from './TeacherAvailabilityModal';
 import FeedbackModal from './FeedbackModal';
 import ChatModal from './ChatModal';
-import { DeleteIcon, AddIcon, ChatIcon } from './icons';
+import ChatList from './ChatList';
+import Sidebar from './Sidebar';
+import { DeleteIcon, AddIcon, ChatIcon, CalendarIcon, ClockIcon, CourseIcon } from './icons';
 
-interface TeacherPortalProps {
+interface PortalProps {
   user: User;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
-const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
+type TeacherView = 'schedule' | 'availability' | 'completed' | 'chat';
+
+const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeView, setActiveView] = useState<TeacherView>('schedule');
   
   // Modal states
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
@@ -51,49 +58,36 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const handleDeleteAvailability = async (id: string) => {
-    if (window.confirm('この空き時間を削除しますか？')) {
-      try {
-        await deleteAvailability(id);
-        fetchData();
-      } catch(e) {
-        setError('削除に失敗しました。');
-      }
-    }
-  };
-
-  const handleOpenChat = (booking: Booking) => {
-    setChatPartner({ id: booking.studentId, name: booking.studentName, role: 'student' });
-    setIsChatModalOpen(true);
-  };
-
-  const upcomingBookings = bookings.filter(b => b.status === 'confirmed' && b.startTime.toDate() > new Date());
-  const completedBookings = bookings.filter(b => b.status !== 'cancelled' && b.startTime.toDate() <= new Date());
   
-  const availabilitiesByDate = availabilities
-    .filter(a => a.status !== 'booked')
-    .reduce((acc, curr) => {
-      const date = curr.startTime.toDate().toLocaleDateString('ja-JP');
-      if (!acc[date]) {
-        acc[date] = [];
-      }
-      acc[date].push(curr);
-      return acc;
-    }, {} as Record<string, Availability[]>);
+  const NavLink: React.FC<{ view: TeacherView; label: string; icon: React.ReactNode }> = ({ view, label, icon }) => (
+    <button
+      onClick={() => {
+        setActiveView(view);
+        setIsSidebarOpen(false);
+      }}
+      className={`flex items-center w-full px-4 py-3 text-sm font-medium text-left rounded-lg transition-colors duration-200 ${
+        activeView === view ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+      }`}
+    >
+      {icon}
+      <span className="ml-3">{label}</span>
+    </button>
+  );
 
-  if (loading) return <div className="flex justify-center mt-8"><Spinner /></div>;
-  if (error) return <Alert message={error} type="error" />;
+  const renderContent = () => {
+    if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
+    if (error) return <Alert message={error} type="error" />;
 
-  return (
-    <div className="container mx-auto space-y-8">
-      <h1 className="text-3xl font-bold text-gray-800">教師ダッシュボード</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Schedule and Availability */}
-        <div className="lg:col-span-2 space-y-8">
+    switch(activeView) {
+      case 'schedule':
+        const upcomingBookings = bookings.filter(b => b.status === 'confirmed' && b.startTime.toDate() > new Date());
+        const handleOpenChatFromBooking = (booking: Booking) => {
+            setChatPartner({ id: booking.studentId, name: booking.studentName, role: 'student' });
+            setIsChatModalOpen(true);
+        };
+        return (
           <div className="bg-white p-6 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">今後のスケジュール</h2>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">今後のスケジュール</h1>
             {upcomingBookings.length > 0 ? (
               <ul className="divide-y divide-gray-200">
                 {upcomingBookings.map(b => (
@@ -103,7 +97,7 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
                       <p className="text-sm text-gray-600">生徒: {b.studentName}</p>
                       <p className="text-sm text-gray-500 mt-1">{b.startTime.toDate().toLocaleString('ja-JP')}</p>
                     </div>
-                    <button onClick={() => handleOpenChat(b)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                    <button onClick={() => handleOpenChatFromBooking(b)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 transition-colors">
                         <ChatIcon />
                     </button>
                   </li>
@@ -111,16 +105,36 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
               </ul>
             ) : <p className="text-gray-500">今後の予約はありません。</p>}
           </div>
-          
+        );
+      case 'availability':
+        const availabilitiesByDate = availabilities
+            .filter(a => a.status !== 'booked')
+            .reduce((acc, curr) => {
+            const date = curr.startTime.toDate().toLocaleDateString('ja-JP');
+            if (!acc[date]) acc[date] = [];
+            acc[date].push(curr);
+            return acc;
+            }, {} as Record<string, Availability[]>);
+        const handleDeleteAvailability = async (id: string) => {
+            if (window.confirm('この空き時間を削除しますか？')) {
+                try {
+                await deleteAvailability(id);
+                fetchData();
+                } catch(e) {
+                setError('削除に失敗しました。');
+                }
+            }
+        };
+        return (
           <div className="bg-white p-6 rounded-xl shadow-lg">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">空き時間管理</h2>
+              <h1 className="text-3xl font-bold text-gray-800">空き時間管理</h1>
               <button onClick={() => setIsAvailabilityModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
                 <AddIcon /> <span>空き時間を登録</span>
               </button>
             </div>
             {Object.keys(availabilitiesByDate).length > 0 ? (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto">
                 {Object.entries(availabilitiesByDate).map(([date, slots]) => (
                   <div key={date}>
                     <h3 className="font-semibold text-gray-700 mb-2">{date}</h3>
@@ -137,24 +151,12 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
               </div>
             ) : <p className="text-gray-500">登録済みの空き時間はありません。</p>}
           </div>
-        </div>
-        
-        {/* Right Column: Courses and Completed Classes */}
-        <div className="space-y-8">
+        );
+      case 'completed':
+        const completedBookings = bookings.filter(b => b.status !== 'cancelled' && b.startTime.toDate() <= new Date());
+        return (
           <div className="bg-white p-6 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">担当コース</h2>
-            {courses.length > 0 ? (
-              <ul className="divide-y divide-gray-200">
-                {courses.map(c => (
-                  <li key={c.id} className="py-3">
-                    <p className="font-semibold text-gray-800">{c.title}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="text-gray-500">担当コースはありません。</p>}
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-             <h2 className="text-2xl font-bold text-gray-800 mb-4">完了したクラス</h2>
+             <h1 className="text-3xl font-bold text-gray-800 mb-4">完了したクラス</h1>
              {completedBookings.length > 0 ? (
               <ul className="divide-y divide-gray-200">
                 {completedBookings.map(b => (
@@ -169,8 +171,30 @@ const TeacherPortal: React.FC<TeacherPortalProps> = ({ user }) => {
               </ul>
             ) : <p className="text-gray-500">完了したクラスはありません。</p>}
           </div>
-        </div>
-      </div>
+        );
+      case 'chat':
+        const handleOpenChatFromList = (student: User) => {
+            setChatPartner(student);
+            setIsChatModalOpen(true);
+        };
+        return <ChatList currentUser={user} onSelectChat={handleOpenChatFromList} />;
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div className="flex w-full h-full">
+      <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen}>
+          <NavLink view="schedule" label="スケジュール" icon={<CalendarIcon />} />
+          <NavLink view="availability" label="空き時間管理" icon={<ClockIcon />} />
+          <NavLink view="completed" label="完了したクラス" icon={<CourseIcon />} />
+          <NavLink view="chat" label="生徒とのチャット" icon={<ChatIcon />} />
+      </Sidebar>
+
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        {renderContent()}
+      </main>
       
       {isAvailabilityModalOpen && <TeacherAvailabilityModal user={user} onClose={() => setIsAvailabilityModalOpen(false)} onSaveSuccess={fetchData} />}
       {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="teacher" onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData} />}

@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { User, Notification } from '../types';
-import { BellIcon, LogoutIcon } from './icons';
+import { BellIcon, LogoutIcon, MenuIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
 import { subscribeToUserNotifications, markAllNotificationsAsRead } from '../services/firebase';
 
 interface HeaderProps {
   user: User;
   onLogout: () => void;
+  onToggleSidebar: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
@@ -17,18 +18,10 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
   useEffect(() => {
     const unsubscribe = subscribeToUserNotifications(user.id, (newNotifications) => {
-      // Show toast for new, unread notifications
-      if (newNotifications.length > notifications.length) {
-        const latestNotif = newNotifications[0];
-        if (!latestNotif.read) {
-          // You can implement a toast notification system here if desired
-          // For now, the badge will update.
-        }
-      }
       setNotifications(newNotifications);
     });
     return () => unsubscribe();
-  }, [user.id, notifications.length]);
+  }, [user.id]);
 
   const handleToggleNotifications = () => {
     setShowNotifications(prev => !prev);
@@ -38,9 +31,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
   };
 
   return (
-    <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
-      <div className="text-2xl font-bold text-gray-800">
-        Classroom Connect
+    <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+      <div className="flex items-center">
+        <button onClick={onToggleSidebar} className="p-2 text-gray-500 rounded-md hover:bg-gray-100 md:hidden">
+            <MenuIcon />
+        </button>
+        <div className="text-2xl font-bold text-gray-800 ml-2">
+          Classroom Connect
+        </div>
       </div>
       <div className="flex items-center space-x-4">
         <span className="text-gray-600 hidden sm:block">ようこそ、{user.name}さん</span>

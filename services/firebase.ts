@@ -317,7 +317,11 @@ export const sendChatMessage = async (
 ): Promise<void> => {
   await initializeFirebase();
   const batch = db.batch();
-  const messagesCol = db.collection('chats').doc(chatId).collection('messages');
+  
+  const chatDocRef = db.collection('chats').doc(chatId);
+  batch.set(chatDocRef, { participants: chatId.split('_').sort() }, { merge: true });
+
+  const messagesCol = chatDocRef.collection('messages');
   const newMsgRef = messagesCol.doc();
   
   batch.set(newMsgRef, {
@@ -350,6 +354,7 @@ export const getChatMessages = async (
   const chatDocRef = db.collection('chats').doc(chatId);
   
   try {
+    // Ensure chat doc exists for listener
     await chatDocRef.set({ participants: chatId.split('_').sort() }, { merge: true });
   } catch (error: any) {
     console.error("Failed to prepare chat document:", error);
@@ -409,6 +414,23 @@ export const getUniqueChatPartnersForStudent = async (studentId: string): Promis
   const teacherIds = new Set(studentBookings.map(b => b.teacherId));
   
   const partnerPromises = Array.from(teacherIds).map(id => getUserProfile(id));
+  
+  const partners = await Promise.all(partnerPromises);
+
+  return partners.filter((p): p is User => p !== null);
+};
+
+export const getUniqueChatPartnersForTeacher = async (teacherId: string): Promise<User[]> => {
+  await initializeFirebase();
+  const teacherBookings = await getBookingsForUser(teacherId, 'teacher');
+  
+  if (teacherBookings.length === 0) {
+    return [];
+  }
+
+  const studentIds = new Set(teacherBookings.map(b => b.studentId));
+  
+  const partnerPromises = Array.from(studentIds).map(id => getUserProfile(id));
   
   const partners = await Promise.all(partnerPromises);
 

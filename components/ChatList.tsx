@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { getUniqueChatPartnersForStudent } from '../services/firebase';
+import { getUniqueChatPartnersForStudent, getUniqueChatPartnersForTeacher } from '../services/firebase';
 import Spinner from './Spinner';
-import { ChatIcon } from './icons';
+import { ChatIcon, UserIcon } from './icons';
 
 interface ChatListProps {
   currentUser: User;
@@ -14,12 +14,22 @@ const ChatList: React.FC<ChatListProps> = ({ currentUser, onSelectChat }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const isStudent = currentUser.role === 'student';
+  const title = isStudent ? '教師とのチャット' : '生徒とのチャット';
+  const emptyMessage = isStudent
+    ? 'まだチャット可能な教師がいません。クラスを予約すると、担当教師とチャットできるようになります。'
+    : 'まだチャット可能な生徒がいません。予約が入ると、担当生徒とチャットできるようになります。';
+
   useEffect(() => {
     const fetchPartners = async () => {
       setLoading(true);
       setError('');
       try {
-        const fetchedPartners = await getUniqueChatPartnersForStudent(currentUser.id);
+        const fetchFunction = isStudent
+          ? getUniqueChatPartnersForStudent
+          : getUniqueChatPartnersForTeacher;
+        
+        const fetchedPartners = await fetchFunction(currentUser.id);
         setPartners(fetchedPartners);
       } catch (e: any) {
         console.error("Failed to fetch chat partners:", e);
@@ -30,11 +40,11 @@ const ChatList: React.FC<ChatListProps> = ({ currentUser, onSelectChat }) => {
     };
 
     fetchPartners();
-  }, [currentUser.id]);
+  }, [currentUser.id, isStudent]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg h-full">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">教師とのチャット</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">{title}</h2>
       {loading ? (
         <div className="flex justify-center items-center h-48">
           <Spinner />
@@ -60,7 +70,7 @@ const ChatList: React.FC<ChatListProps> = ({ currentUser, onSelectChat }) => {
         </ul>
       ) : (
         <p className="text-gray-500 text-center py-8">
-          まだチャット可能な教師がいません。クラスを予約すると、担当教師とチャットできるようになります。
+          {emptyMessage}
         </p>
       )}
     </div>

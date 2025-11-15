@@ -21,7 +21,13 @@ import ScheduleCalendar from './ScheduleCalendar';
 import BookingDetailModal from './BookingDetailModal';
 import AdminAvailabilityModal from './AdminAvailabilityModal';
 import AdminManualBookingModal from './AdminManualBookingModal';
+import Sidebar from './Sidebar';
 import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon, ChevronDownIcon } from './icons';
+
+interface PortalProps {
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
+}
 
 type ActiveView = 'dashboard' | 'users' | 'courses' | 'bookings' | 'availability';
 
@@ -44,7 +50,7 @@ const AccordionItem: React.FC<{ title: string; children: React.ReactNode }> = ({
 };
 
 
-const AdminPortal: React.FC = () => {
+const AdminPortal: React.FC<PortalProps> = ({ isSidebarOpen, setIsSidebarOpen }) => {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -199,21 +205,24 @@ const AdminPortal: React.FC = () => {
       case 'dashboard':
         const upcomingBookingsCount = bookings.filter(b => b.startTime.toDate() >= today).length;
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="p-6 bg-white rounded-xl shadow-md text-center flex flex-col items-center justify-center">
-              <UserIcon className="w-10 h-10 text-blue-500 mb-2"/>
-              <h3 className="text-lg font-semibold text-gray-500">総ユーザー数</h3>
-              <p className="text-4xl font-bold text-blue-600">{users.length}</p>
-            </div>
-            <div className="p-6 bg-white rounded-xl shadow-md text-center flex flex-col items-center justify-center">
-              <CourseIcon className="w-10 h-10 text-green-500 mb-2"/>
-              <h3 className="text-lg font-semibold text-gray-500">総コース数</h3>
-              <p className="text-4xl font-bold text-green-600">{courses.length}</p>
-            </div>
-            <div className="p-6 bg-white rounded-xl shadow-md text-center flex flex-col items-center justify-center">
-              <CalendarIcon className="w-10 h-10 text-indigo-500 mb-2"/>
-              <h3 className="text-lg font-semibold text-gray-500">今後の予約件数</h3>
-              <p className="text-4xl font-bold text-indigo-600">{upcomingBookingsCount}</p>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-6">ダッシュボード</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="p-6 bg-white rounded-xl shadow-md text-center flex flex-col items-center justify-center">
+                <UserIcon className="w-10 h-10 text-blue-500 mb-2"/>
+                <h3 className="text-lg font-semibold text-gray-500">総ユーザー数</h3>
+                <p className="text-4xl font-bold text-blue-600">{users.length}</p>
+              </div>
+              <div className="p-6 bg-white rounded-xl shadow-md text-center flex flex-col items-center justify-center">
+                <CourseIcon className="w-10 h-10 text-green-500 mb-2"/>
+                <h3 className="text-lg font-semibold text-gray-500">総コース数</h3>
+                <p className="text-4xl font-bold text-green-600">{courses.length}</p>
+              </div>
+              <div className="p-6 bg-white rounded-xl shadow-md text-center flex flex-col items-center justify-center">
+                <CalendarIcon className="w-10 h-10 text-indigo-500 mb-2"/>
+                <h3 className="text-lg font-semibold text-gray-500">今後の予約件数</h3>
+                <p className="text-4xl font-bold text-indigo-600">{upcomingBookingsCount}</p>
+              </div>
             </div>
           </div>
         );
@@ -221,7 +230,7 @@ const AdminPortal: React.FC = () => {
         return (
           <div className="p-6 bg-white rounded-xl shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">ユーザー一覧</h2>
+              <h1 className="text-3xl font-bold text-gray-800">ユーザー管理</h1>
               <button onClick={() => setIsCreateUserModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
                 <AddIcon /> <span>新規ユーザー作成</span>
               </button>
@@ -257,7 +266,7 @@ const AdminPortal: React.FC = () => {
         return (
           <div className="p-6 bg-white rounded-xl shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">コース一覧</h2>
+              <h1 className="text-3xl font-bold text-gray-800">コース管理</h1>
               <button onClick={() => handleOpenCourseEdit(null)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
                 <AddIcon /> <span>新規コース作成</span>
               </button>
@@ -292,7 +301,8 @@ const AdminPortal: React.FC = () => {
       case 'bookings':
         return (
             <div>
-                 <div className="flex justify-end items-center mb-4">
+                 <div className="flex justify-between items-center mb-4">
+                    <h1 className="text-3xl font-bold text-gray-800">予約カレンダー</h1>
                     <button onClick={() => setIsManualBookingModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">
                         <AddIcon /> <span>手動で予約を追加</span>
                     </button>
@@ -312,7 +322,7 @@ const AdminPortal: React.FC = () => {
         return (
             <div className="p-6 bg-white rounded-xl shadow-md">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">教師の空き時間管理</h2>
+                    <h1 className="text-3xl font-bold text-gray-800">教師の空き時間管理</h1>
                     <button onClick={() => setIsAdminAvailabilityModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
                         <AddIcon /> <span>空き時間を追加</span>
                     </button>
@@ -362,7 +372,10 @@ const AdminPortal: React.FC = () => {
 
   const NavLink: React.FC<{ view: ActiveView; label: string; icon: React.ReactNode }> = ({ view, label, icon }) => (
     <button
-      onClick={() => setActiveView(view)}
+      onClick={() => {
+        setActiveView(view)
+        setIsSidebarOpen(false); // Close on mobile
+      }}
       className={`flex items-center w-full px-4 py-3 text-sm font-medium text-left rounded-lg transition-colors duration-200 ${
         activeView === view ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
       }`}
@@ -373,18 +386,15 @@ const AdminPortal: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <aside className="w-64 bg-white p-4 border-r border-gray-200 flex flex-col">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 px-2">管理メニュー</h2>
-        <nav className="space-y-2">
+    <div className="flex w-full h-full">
+      <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen}>
           <NavLink view="dashboard" label="ダッシュボード" icon={<DashboardIcon />} />
           <NavLink view="users" label="ユーザー管理" icon={<UserIcon />} />
           <NavLink view="courses" label="コース管理" icon={<CourseIcon />} />
-          <NavLink view="bookings" label="予約管理" icon={<CalendarIcon />} />
+          <NavLink view="bookings" label="予約カレンダー" icon={<CalendarIcon />} />
           <NavLink view="availability" label="教師の空き時間" icon={<ClockIcon />} />
-        </nav>
-      </aside>
-      <main className="flex-1 p-8 overflow-y-auto">
+      </Sidebar>
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {renderContent()}
       </main>
 

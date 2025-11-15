@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(null);
   const [authInstance, setAuthInstance] = useState<firebase.auth.Auth | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -110,15 +111,15 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="h-screen bg-gray-100 flex flex-col">
       {user ? (
         <>
-          <Header user={user} onLogout={handleLogout} />
-          <main className="p-4 md:p-8">
-            {user.role === 'student' && <StudentPortal user={user} />}
-            {user.role === 'teacher' && <TeacherPortal user={user} />}
-            {user.role === 'admin' && <AdminPortal />}
-          </main>
+          <Header user={user} onLogout={handleLogout} onToggleSidebar={() => setIsSidebarOpen(prev => !prev)} />
+          <div className="flex-1 flex overflow-hidden">
+            {user.role === 'student' && <StudentPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
+            {user.role === 'teacher' && <TeacherPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
+            {user.role === 'admin' && <AdminPortal isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
+          </div>
         </>
       ) : (
         <Login />

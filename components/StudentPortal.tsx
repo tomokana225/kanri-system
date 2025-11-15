@@ -6,14 +6,24 @@ import Alert from './Alert';
 import BookingModal from './BookingModal';
 import FeedbackModal from './FeedbackModal';
 import ChatModal from './ChatModal';
-import ChatList from './ChatList'; // Import the new ChatList component
+import ChatList from './ChatList';
+import Sidebar from './Sidebar';
 import { ChatIcon, CalendarIcon, ClockIcon } from './icons';
 
-const StudentPortal: React.FC<{ user: User }> = ({ user }) => {
+interface PortalProps {
+  user: User;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
+}
+
+type StudentView = 'bookings' | 'chat';
+
+const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeView, setActiveView] = useState<StudentView>('bookings');
 
   // Modal states
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -55,26 +65,32 @@ const StudentPortal: React.FC<{ user: User }> = ({ user }) => {
       }
     }
   };
-
-  const handleOpenChatFromBooking = (booking: Booking) => {
-    const course = courses.find(c => c.id === booking.courseId);
-    if (course) {
-        setChatPartner({ id: course.teacherId, name: course.teacherName || '不明な教師', role: 'teacher' });
-        setIsChatModalOpen(true);
-    } else {
-        setError('このコースの教師情報が見つかりませんでした。');
-    }
-  };
   
   const handleOpenChatFromList = (teacher: User) => {
     setChatPartner(teacher);
     setIsChatModalOpen(true);
   };
+  
+  const NavLink: React.FC<{ view: StudentView; label: string; icon: React.ReactNode }> = ({ view, label, icon }) => (
+    <button
+      onClick={() => {
+        setActiveView(view);
+        setIsSidebarOpen(false); // Close sidebar on mobile after selection
+      }}
+      className={`flex items-center w-full px-4 py-3 text-sm font-medium text-left rounded-lg transition-colors duration-200 ${
+        activeView === view ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+      }`}
+    >
+      {icon}
+      <span className="ml-3">{label}</span>
+    </button>
+  );
 
-  const upcomingBookings = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && b.startTime.toDate() > new Date());
-  const pastBookings = bookings.filter(b => b.status === 'completed' || b.status === 'cancelled' || (b.status === 'confirmed' && b.startTime.toDate() <= new Date()));
+  const renderBookings = () => {
+    const upcomingBookings = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && b.startTime.toDate() > new Date());
+    const pastBookings = bookings.filter(b => b.status === 'completed' || b.status === 'cancelled' || (b.status === 'confirmed' && b.startTime.toDate() <= new Date()));
 
-  const canCancel = (booking: Booking) => {
+    const canCancel = (booking: Booking) => {
       if (booking.status === 'cancelled') return false;
       if (!booking.cancellationDeadline) {
         const now = new Date();
@@ -83,115 +99,130 @@ const StudentPortal: React.FC<{ user: User }> = ({ user }) => {
         return hoursUntilClass > 24;
       }
       return booking.cancellationDeadline.toDate() > new Date();
-  };
+    };
+    
+    const handleOpenChatFromBooking = (booking: Booking) => {
+      const course = courses.find(c => c.id === booking.courseId);
+      if (course) {
+          setChatPartner({ id: course.teacherId, name: course.teacherName || '不明な教師', role: 'teacher' });
+          setIsChatModalOpen(true);
+      } else {
+          setError('このコースの教師情報が見つかりませんでした。');
+      }
+    };
 
-  if (loading) return <div className="flex justify-center mt-8"><Spinner /></div>;
-  
+    return (
+        <div className="space-y-8">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold text-gray-800">予約管理</h1>
+                <button
+                onClick={() => setIsBookingModalOpen(true)}
+                className="px-6 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
+                >
+                クラスを予約
+                </button>
+            </div>
+            {error && <Alert message={error} type="error" />}
+
+            <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">今後の予約</h2>
+                {upcomingBookings.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {upcomingBookings.map(booking => (
+                    <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform transform hover:-translate-y-1">
+                        <div className="p-5">
+                        <p className="font-bold text-lg text-blue-800">{booking.courseTitle}</p>
+                        <p className="text-sm text-gray-600 mt-2">教師: {courses.find(c => c.id === booking.courseId)?.teacherName || 'N/A'}</p>
+                        <div className="flex items-center text-sm text-gray-600 mt-2">
+                            <CalendarIcon className="w-4 h-4 mr-2" />
+                            <span>{booking.startTime.toDate().toLocaleDateString('ja-JP')}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600 mt-1">
+                            <ClockIcon className="w-4 h-4 mr-2" />
+                            <span>{booking.startTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 flex gap-2">
+                            <button onClick={() => handleOpenChatFromBooking(booking)} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 transition-colors">
+                            <ChatIcon /> <span>チャット</span>
+                            </button>
+                            {canCancel(booking) ? (
+                            <button
+                                onClick={() => handleCancelBooking(booking.id)}
+                                className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+                            >
+                                キャンセル
+                            </button>
+                        ) : (
+                            <button className="flex-1 px-3 py-2 text-sm font-medium text-white bg-gray-400 rounded-md cursor-not-allowed" disabled title="キャンセル期限を過ぎています">
+                                キャンセル不可
+                            </button>
+                        )}
+                        </div>
+                    </div>
+                    ))}
+                </div>
+                ) : (
+                <p className="text-gray-500 bg-white p-6 rounded-lg shadow-sm">今後の予約はありません。</p>
+                )}
+            </div>
+
+            <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">予約履歴</h2>
+                {pastBookings.length > 0 ? (
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <ul className="divide-y divide-gray-200">
+                    {pastBookings.map(booking => (
+                    <li key={booking.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                        <div>
+                            <p className={`font-semibold ${booking.status === 'cancelled' ? 'text-gray-400 line-through' : ''}`}>{booking.courseTitle}</p>
+                            <p className="text-sm text-gray-500">{booking.startTime.toDate().toLocaleDateString('ja-JP')}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                        {booking.status !== 'cancelled' && (
+                            <>
+                            <button onClick={() => handleOpenChatFromBooking(booking)} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                                <ChatIcon /> <span>チャット履歴</span>
+                            </button>
+                            {booking.feedback ? (
+                            <button onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} className="px-3 py-1.5 text-sm text-green-700 bg-green-100 rounded-md hover:bg-green-200">
+                                フィードバックあり
+                            </button>
+                            ) : (
+                            <button onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} className="px-3 py-1.5 text-sm text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200">
+                                フィードバックを見る
+                            </button>
+                            )}
+                            </>
+                        )}
+                        </div>
+                    </li>
+                    ))}
+                    </ul>
+                </div>
+                ) : (
+                <p className="text-gray-500 bg-white p-6 rounded-lg shadow-sm">完了したクラスはありません。</p>
+                )}
+            </div>
+        </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">マイポータル</h1>
-        <button
-          onClick={() => setIsBookingModalOpen(true)}
-          className="px-6 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
-        >
-          クラスを予約
-        </button>
-      </div>
-
-      {error && <Alert message={error} type="error" />}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content: Bookings */}
-        <div className="lg:col-span-2 space-y-8">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">今後の予約</h2>
-            {upcomingBookings.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {upcomingBookings.map(booking => (
-                  <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform transform hover:-translate-y-1">
-                    <div className="p-5">
-                      <p className="font-bold text-lg text-blue-800">{booking.courseTitle}</p>
-                      <p className="text-sm text-gray-600 mt-2">教師: {courses.find(c => c.id === booking.courseId)?.teacherName || 'N/A'}</p>
-                      <div className="flex items-center text-sm text-gray-600 mt-2">
-                          <CalendarIcon className="w-4 h-4 mr-2" />
-                          <span>{booking.startTime.toDate().toLocaleDateString('ja-JP')}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600 mt-1">
-                          <ClockIcon className="w-4 h-4 mr-2" />
-                          <span>{booking.startTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-gray-50 flex gap-2">
-                        <button onClick={() => handleOpenChatFromBooking(booking)} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 transition-colors">
-                          <ChatIcon /> <span>チャット</span>
-                        </button>
-                        {canCancel(booking) ? (
-                          <button
-                              onClick={() => handleCancelBooking(booking.id)}
-                              className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-                          >
-                              キャンセル
-                          </button>
-                      ) : (
-                          <button className="flex-1 px-3 py-2 text-sm font-medium text-white bg-gray-400 rounded-md cursor-not-allowed" disabled title="キャンセル期限を過ぎています">
-                              キャンセル不可
-                          </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 bg-white p-6 rounded-lg shadow-sm">今後の予約はありません。</p>
-            )}
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">予約履歴</h2>
-            {pastBookings.length > 0 ? (
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <ul className="divide-y divide-gray-200">
-                {pastBookings.map(booking => (
-                  <li key={booking.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
-                    <div>
-                        <p className={`font-semibold ${booking.status === 'cancelled' ? 'text-gray-400 line-through' : ''}`}>{booking.courseTitle}</p>
-                        <p className="text-sm text-gray-500">{booking.startTime.toDate().toLocaleDateString('ja-JP')}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {booking.status !== 'cancelled' && (
-                        <>
-                        <button onClick={() => handleOpenChatFromBooking(booking)} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                            <ChatIcon /> <span>チャット履歴</span>
-                        </button>
-                        {booking.feedback ? (
-                          <button onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} className="px-3 py-1.5 text-sm text-green-700 bg-green-100 rounded-md hover:bg-green-200">
-                              フィードバックあり
-                          </button>
-                        ) : (
-                          <button onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} className="px-3 py-1.5 text-sm text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200">
-                              フィードバックを見る
-                          </button>
-                        )}
-                        </>
-                      )}
-                    </div>
-                  </li>
-                ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-gray-500 bg-white p-6 rounded-lg shadow-sm">完了したクラスはありません。</p>
-            )}
-          </div>
-        </div>
-
-        {/* Right Sidebar: Chat List */}
-        <div className="lg:col-span-1">
-            <ChatList currentUser={user} onSelectChat={handleOpenChatFromList} />
-        </div>
-      </div>
+    <div className="flex w-full h-full">
+      <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen}>
+          <NavLink view="bookings" label="予約管理" icon={<CalendarIcon />} />
+          <NavLink view="chat" label="教師とのチャット" icon={<ChatIcon />} />
+      </Sidebar>
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        {loading ? (
+          <div className="flex justify-center items-center h-full"><Spinner /></div>
+        ) : activeView === 'bookings' ? (
+          renderBookings()
+        ) : (
+          <ChatList currentUser={user} onSelectChat={handleOpenChatFromList} />
+        )}
+      </main>
 
       {isBookingModalOpen && <BookingModal user={user} courses={courses} onClose={() => setIsBookingModalOpen(false)} onBookingSuccess={fetchData} />}
       {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="student" onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData}/>}
