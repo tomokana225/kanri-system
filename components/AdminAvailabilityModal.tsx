@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User, Availability } from '../types';
 import { addAvailabilities } from '../services/firebase';
-import { Timestamp } from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import Modal from './Modal';
 import Alert from './Alert';
 import Calendar from './Calendar';
@@ -51,8 +52,8 @@ const AdminAvailabilityModal: React.FC<AdminAvailabilityModalProps> = ({ teacher
 
         return {
           teacherId: selectedTeacherId,
-          startTime: Timestamp.fromDate(startTime),
-          endTime: Timestamp.fromDate(endTime),
+          startTime: firebase.firestore.Timestamp.fromDate(startTime),
+          endTime: firebase.firestore.Timestamp.fromDate(endTime),
         };
       });
 

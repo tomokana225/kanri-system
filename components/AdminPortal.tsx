@@ -23,8 +23,11 @@ import AdminAvailabilityModal from './AdminAvailabilityModal';
 import AdminManualBookingModal from './AdminManualBookingModal';
 import Sidebar from './Sidebar';
 import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon, ChevronDownIcon } from './icons';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 interface PortalProps {
+  user: User;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
 }
@@ -50,7 +53,7 @@ const AccordionItem: React.FC<{ title: string; children: React.ReactNode }> = ({
 };
 
 
-const AdminPortal: React.FC<PortalProps> = ({ isSidebarOpen, setIsSidebarOpen }) => {
+const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -75,6 +78,34 @@ const AdminPortal: React.FC<PortalProps> = ({ isSidebarOpen, setIsSidebarOpen })
   const userMap = new Map(users.filter(u => u && u.id && u.name && typeof u.name === 'string').map(u => [u.id, u.name]));
 
   const fetchData = useCallback(async () => {
+    const isDevMode = user.id.startsWith('dev-');
+    if (isDevMode) {
+        const mockTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() + hours * 60 * 60 * 1000));
+        const mockUsers: User[] = [
+            { id: 'dev-admin-id', name: '開発用管理者', email: 'admin@example.com', role: 'admin' },
+            { id: 'dev-teacher-1', name: '田中先生', email: 'teacher1@example.com', role: 'teacher' },
+            { id: 'dev-teacher-2', name: '鈴木先生', email: 'teacher2@example.com', role: 'teacher' },
+            { id: 'dev-student-1', name: '佐藤学生', email: 'student1@example.com', role: 'student' },
+            { id: 'dev-student-2', name: '伊藤学生', email: 'student2@example.com', role: 'student' },
+        ];
+        const mockCourses: Course[] = [
+            { id: 'c1', title: '英会話初級', description: '...', teacherId: 'dev-teacher-1', studentIds: ['dev-student-1'], teacherName: '田中先生' },
+            { id: 'c2', title: 'ビジネス英語', description: '...', teacherId: 'dev-teacher-2', studentIds: ['dev-student-1', 'dev-student-2'], teacherName: '鈴木先生' },
+        ];
+        const mockBookings: Booking[] = [
+            { id: 'b1', studentId: 'dev-student-1', studentName: '佐藤学生', teacherId: 'dev-teacher-1', courseId: 'c1', courseTitle: '英会話初級', startTime: mockTimestamp(25), endTime: mockTimestamp(26), status: 'confirmed' },
+        ];
+        const mockAvailabilities: Availability[] = [
+             { id: 'a1', teacherId: 'dev-teacher-1', startTime: mockTimestamp(3), endTime: mockTimestamp(4), status: 'available' },
+             { id: 'a2', teacherId: 'dev-teacher-2', startTime: mockTimestamp(5), endTime: mockTimestamp(6), status: 'available' },
+        ];
+        setUsers(mockUsers);
+        setCourses(mockCourses);
+        setBookings(mockBookings);
+        setAvailabilities(mockAvailabilities);
+        setLoading(false);
+        return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -95,7 +126,7 @@ const AdminPortal: React.FC<PortalProps> = ({ isSidebarOpen, setIsSidebarOpen })
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     fetchData();

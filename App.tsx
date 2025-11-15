@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { initializeFirebase, getUserProfile, createUserProfile } from './services/firebase';
-import { User } from './types';
+import { User, UserRole } from './types';
 import Login from './components/Login';
 import Header from './components/Header';
 import StudentPortal from './components/StudentPortal';
@@ -10,6 +10,7 @@ import Spinner from './components/Spinner';
 // Fix: Use Firebase compat imports to resolve module resolution errors.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
+import { ChevronDownIcon } from './components/icons';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -17,12 +18,36 @@ const App: React.FC = () => {
   const [initializationError, setInitializationError] = useState<string | null>(null);
   const [authInstance, setAuthInstance] = useState<firebase.auth.Auth | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  const handleDevModeLogin = (role: UserRole) => {
+    console.warn(`[開発モード] ${role}としてログインしています。表示されているデータはモックです。`);
+    setUser({
+        id: `dev-${role}-id`,
+        name: `開発用${role === 'student' ? '学生' : role === 'teacher' ? '教師' : '管理者'}`,
+        email: `${role}@example.com`,
+        role: role as UserRole,
+    });
+    setInitializationError(null); // Clear error to render the portal
+    setLoading(false);
+  };
+
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
         const { auth } = await initializeFirebase();
         setAuthInstance(auth);
+
+        // --- DEV MODE (URL PARAM) ---
+        // Keep this as a shortcut for developers
+        const urlParams = new URLSearchParams(window.location.search);
+        const devRole = urlParams.get('dev_role');
+        if (devRole && ['student', 'teacher', 'admin'].includes(devRole)) {
+            handleDevModeLogin(devRole as UserRole);
+            return; // Skip real auth listener setup
+        }
+        // --- END DEV MODE ---
 
         const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: firebase.User | null) => {
           if (firebaseUser) {
@@ -83,19 +108,38 @@ const App: React.FC = () => {
   if (initializationError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-        <div className="w-full max-w-2xl p-8 space-y-4 bg-white rounded-lg shadow-md text-center">
-            <h1 className="text-2xl font-bold text-red-600">アプリケーション設定エラー</h1>
-            <p className="text-gray-700">{initializationError}</p>
-            <div className="text-left bg-gray-50 p-6 rounded-md text-sm text-gray-600">
-              <p className="font-semibold mb-2 text-base">修正方法:</p>
-              <p className="mb-2">このエラーは、Cloudflare Pagesの環境変数（シークレットキー）が正しく設定されていない場合に発生します。</p>
-              
-              <p>1. Cloudflare Pagesのプロジェクト設定に移動します。</p>
-              <p>2. 「環境変数」セクションで、以下の変数がすべて設定されていることを確認してください。</p>
-              <pre className="mt-3 p-3 bg-gray-200 rounded text-xs overflow-x-auto">
-                {`FIREBASE_API_KEY\nFIREBASE_AUTH_DOMAIN\nFIREBASE_PROJECT_ID\nFIREBASE_STORAGE_BUCKET\nFIREBASE_MESSAGING_SENDER_ID\nFIREBASE_APP_ID\nFIREBASE_MEASUREMENT_ID`}
-              </pre>
-              <p className="mt-3">3. 変数を追加または更新した後、アプリケーションを再デプロイしてください。</p>
+        <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
+            <h1 className="text-2xl font-bold text-orange-600">開発用モード</h1>
+            <p className="text-gray-700">
+                アプリケーションの初期化に失敗しました。
+                <br />
+                UIをテストするために、表示したい役割を選択してください。
+            </p>
+            <div className="flex justify-center space-x-4 pt-4">
+                 <button onClick={() => handleDevModeLogin('student')} className="px-6 py-3 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700">
+                    学生として表示
+                </button>
+                 <button onClick={() => handleDevModeLogin('teacher')} className="px-6 py-3 font-semibold text-white bg-green-600 rounded-lg shadow-md hover:bg-green-700">
+                    教師として表示
+                </button>
+                 <button onClick={() => handleDevModeLogin('admin')} className="px-6 py-3 font-semibold text-white bg-gray-700 rounded-lg shadow-md hover:bg-gray-800">
+                    管理者として表示
+                </button>
+            </div>
+            <div className="text-left bg-gray-50 p-4 rounded-md text-sm text-gray-600 mt-6">
+              <button onClick={() => setShowErrorDetails(!showErrorDetails)} className="font-semibold mb-2 text-base flex items-center justify-between w-full">
+                <span>技術的な詳細 (デバッグ用)</span>
+                <ChevronDownIcon className={`w-5 h-5 transition-transform ${showErrorDetails ? 'rotate-180' : ''}`} />
+              </button>
+              {showErrorDetails && (
+                <div className="mt-2 pt-2 border-t">
+                  <p className="mb-2 text-red-600 font-medium">エラーメッセージ: {initializationError}</p>
+                  <p className="mb-2">このエラーは通常、Cloudflare Pagesの環境変数が正しく設定されていない場合に発生します。</p>
+                  <pre className="mt-3 p-3 bg-gray-200 rounded text-xs overflow-x-auto">
+                    {`FIREBASE_API_KEY\nFIREBASE_AUTH_DOMAIN\nFIREBASE_PROJECT_ID\n...`}
+                  </pre>
+                </div>
+              )}
             </div>
         </div>
       </div>
@@ -118,7 +162,7 @@ const App: React.FC = () => {
           <div className="flex-1 flex overflow-hidden">
             {user.role === 'student' && <StudentPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
             {user.role === 'teacher' && <TeacherPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
-            {user.role === 'admin' && <AdminPortal isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
+            {user.role === 'admin' && <AdminPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
           </div>
         </>
       ) : (

@@ -9,6 +9,8 @@ import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
 import { DeleteIcon, AddIcon, ChatIcon, CalendarIcon, ClockIcon, CourseIcon } from './icons';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 interface PortalProps {
   user: User;
@@ -34,6 +36,24 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   const [chatPartner, setChatPartner] = useState<Partial<User> | null>(null);
 
   const fetchData = useCallback(async () => {
+    const isDevMode = user.id.startsWith('dev-');
+    if (isDevMode) {
+        const mockTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() + hours * 60 * 60 * 1000));
+        const mockBookings: Booking[] = [
+            { id: 'b1', studentId: 'dev-student-1', studentName: '佐藤学生', teacherId: user.id, courseId: 'c1', courseTitle: '英会話初級', startTime: mockTimestamp(25), endTime: mockTimestamp(26), status: 'confirmed' },
+            { id: 'b2', studentId: 'dev-student-2', studentName: '伊藤学生', teacherId: user.id, courseId: 'c2', courseTitle: 'ビジネス英語', startTime: mockTimestamp(48), endTime: mockTimestamp(49), status: 'confirmed' },
+        ];
+        const mockAvailabilities: Availability[] = [
+            { id: 'a1', teacherId: user.id, startTime: mockTimestamp(3), endTime: mockTimestamp(4), status: 'available' },
+            { id: 'a2', teacherId: user.id, startTime: mockTimestamp(5), endTime: mockTimestamp(6), status: 'available' },
+            { id: 'a3', teacherId: user.id, startTime: mockTimestamp(28), endTime: mockTimestamp(29), status: 'booked', studentId: 'dev-student-1' },
+        ];
+        setBookings(mockBookings);
+        setAvailabilities(mockAvailabilities);
+        setLoading(false);
+        return;
+    }
+
     setLoading(true);
     setError('');
     try {

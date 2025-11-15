@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { User, Course, Booking } from '../types';
 import { createManualBooking } from '../services/firebase';
-import { Timestamp } from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import Modal from './Modal';
 import Alert from './Alert';
 import Calendar from './Calendar';
@@ -56,8 +57,8 @@ const AdminManualBookingModal: React.FC<AdminManualBookingModalProps> = ({ users
         teacherId: teacher.id,
         courseId: selectedCourse.id,
         courseTitle: selectedCourse.title,
-        startTime: Timestamp.fromDate(startTime),
-        endTime: Timestamp.fromDate(endTime),
+        startTime: firebase.firestore.Timestamp.fromDate(startTime),
+        endTime: firebase.firestore.Timestamp.fromDate(endTime),
         status: 'confirmed',
       };
       

@@ -1,4 +1,7 @@
-import { Timestamp } from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
+
+export type Timestamp = firebase.firestore.Timestamp;
 
 export type UserRole = 'student' | 'teacher' | 'admin';
 

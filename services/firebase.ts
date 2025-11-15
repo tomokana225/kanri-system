@@ -27,17 +27,16 @@ export const initializeFirebase = async (): Promise<{ app: firebase.app.App, aut
     try {
       const config: AppConfig = await getConfig();
       
-      if (!firebase.apps.length) {
-        firebaseApp = firebase.initializeApp(config.firebase);
-        auth = firebase.auth();
-        db = firebase.firestore();
-        storage = firebase.storage();
-      } else {
-        firebaseApp = firebase.app();
-        auth = firebase.auth();
-        db = firebase.firestore();
-        storage = firebase.storage();
-      }
+      // Initialize app if it doesn't exist, otherwise get existing app
+      firebaseApp = !firebase.apps.length
+        ? firebase.initializeApp(config.firebase)
+        : firebase.app();
+      
+      // Get services from the app instance for robustness
+      auth = firebaseApp.auth();
+      db = firebaseApp.firestore();
+      storage = firebaseApp.storage();
+
       return { app: firebaseApp, auth, db, storage };
     } catch (error) {
       console.error("Firebase initialization failed:", error);

@@ -9,6 +9,8 @@ import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
 import { ChatIcon, CalendarIcon, ClockIcon, AddIcon } from './icons';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 interface PortalProps {
   user: User;
@@ -34,6 +36,27 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   const [chatPartner, setChatPartner] = useState<Partial<User> | null>(null);
 
   const fetchData = useCallback(async () => {
+    const isDevMode = user.id.startsWith('dev-');
+    if (isDevMode) {
+      const mockTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() + hours * 60 * 60 * 1000));
+      const mockPastTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() - hours * 60 * 60 * 1000));
+      
+      const mockCourses: Course[] = [
+        { id: 'c1', title: '英会話初級', description: '...', teacherId: 'dev-teacher-id', teacherName: '田中先生', studentIds: [user.id] },
+        { id: 'c2', title: 'ビジネス英語', description: '...', teacherId: 'dev-teacher-id-2', teacherName: '鈴木先生', studentIds: [user.id] }
+      ];
+      const mockBookings: Booking[] = [
+        { id: 'b1', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id', courseId: 'c1', courseTitle: '英会話初級', startTime: mockTimestamp(25), endTime: mockTimestamp(26), status: 'confirmed' },
+        { id: 'b2', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id-2', courseId: 'c2', courseTitle: 'ビジネス英語', startTime: mockTimestamp(48), endTime: mockTimestamp(49), status: 'confirmed' },
+        { id: 'b3', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id', courseId: 'c1', courseTitle: '英会話初級', startTime: mockPastTimestamp(24), endTime: mockPastTimestamp(23), status: 'completed', feedback: { rating: 5, comment: 'とても分かりやすかったです。'} },
+        { id: 'b4', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id-2', courseId: 'c2', courseTitle: 'ビジネス英語', startTime: mockPastTimestamp(72), endTime: mockPastTimestamp(71), status: 'cancelled' },
+      ];
+      setCourses(mockCourses);
+      setBookings(mockBookings);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -48,7 +71,7 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     } finally {
       setLoading(false);
     }
-  }, [user.id]);
+  }, [user.id, user.name]);
 
   useEffect(() => {
     fetchData();
