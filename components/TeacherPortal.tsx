@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Course, Booking, Availability } from '../types';
-import { getCoursesForTeacher, getBookingsForUser, getAvailabilitiesForTeacher, deleteAvailability } from '../services/firebase';
+import { User, Booking, Availability } from '../types';
+import { getBookingsForUser, getAvailabilitiesForTeacher, deleteAvailability } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import TeacherAvailabilityModal from './TeacherAvailabilityModal';
@@ -19,7 +19,6 @@ interface PortalProps {
 type TeacherView = 'schedule' | 'availability' | 'completed' | 'chat';
 
 const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
-  const [courses, setCourses] = useState<Course[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,12 +37,10 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     setLoading(true);
     setError('');
     try {
-      const [teacherCourses, teacherBookings, teacherAvailabilities] = await Promise.all([
-        getCoursesForTeacher(user.id),
+      const [teacherBookings, teacherAvailabilities] = await Promise.all([
         getBookingsForUser(user.id, 'teacher'),
         getAvailabilitiesForTeacher(user.id)
       ]);
-      setCourses(teacherCourses);
       setBookings(teacherBookings);
       setAvailabilities(teacherAvailabilities);
     } catch (e: any) {

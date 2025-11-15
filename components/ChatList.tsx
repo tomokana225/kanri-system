@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { getUniqueChatPartnersForStudent, getUniqueChatPartnersForTeacher } from '../services/firebase';
 import Spinner from './Spinner';
-import { ChatIcon, UserIcon } from './icons';
+import { ChatIcon } from './icons';
 
 interface ChatListProps {
   currentUser: User;
