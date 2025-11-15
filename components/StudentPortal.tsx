@@ -152,7 +152,7 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                         <p className="text-sm text-gray-600 mt-2">教師: {courses.find(c => c.id === booking.courseId)?.teacherName || 'N/A'}</p>
                         <div className="flex items-center text-sm text-gray-600 mt-2">
                             <CalendarIcon className="w-4 h-4 mr-2" />
-                            <span>{booking.startTime.toDate().toLocaleDateString('ja-JP')}</span>
+                            <span>{booking.startTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600 mt-1">
                             <ClockIcon className="w-4 h-4 mr-2" />
@@ -193,7 +193,7 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                     <li key={booking.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
                         <div>
                             <p className={`font-semibold ${booking.status === 'cancelled' ? 'text-gray-400 line-through' : ''}`}>{booking.courseTitle}</p>
-                            <p className="text-sm text-gray-500">{booking.startTime.toDate().toLocaleDateString('ja-JP')}</p>
+                            <p className="text-sm text-gray-500">{booking.startTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</p>
                         </div>
                         <div className="flex items-center gap-4">
                         {booking.status !== 'cancelled' && (

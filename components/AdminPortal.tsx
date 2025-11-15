@@ -428,7 +428,7 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.courseTitle}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.studentId) || booking.studentName}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.startTime.toDate().toLocaleString('ja-JP')}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.status}</td>
                                 </tr>
                             ))}

@@ -19,7 +19,7 @@ const BookingDetailModal: React.FC<BookingDetailModalProps> = ({ booking, onClos
         <p><strong>生徒:</strong> {booking.studentName || userMap.get(booking.studentId) || '不明'}</p>
         {/* Fix: Display teacher name using the passed userMap */}
         <p><strong>教師:</strong> {userMap.get(booking.teacherId) || '不明'}</p>
-        <p><strong>日時:</strong> {booking.startTime.toDate().toLocaleString('ja-JP')}</p>
+        <p><strong>日時:</strong> {booking.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</p>
         <p><strong>ステータス:</strong> {booking.status}</p>
       </div>
     </Modal>

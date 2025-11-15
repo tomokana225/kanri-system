@@ -4,7 +4,8 @@ import { getAvailabilitiesForTeacher, createBooking } from '../services/firebase
 import Spinner from './Spinner';
 import Alert from './Alert';
 import Calendar from './Calendar';
-import { CloseIcon } from './icons';
+// Fix: Import the Modal component to be used as a wrapper. The CloseIcon is used within Modal.
+import Modal from './Modal';
 
 interface BookingModalProps {
   user: User;
@@ -170,7 +171,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
             <div className="p-4 bg-gray-50 rounded-md space-y-1">
               <p><strong>コース:</strong> {selectedCourse?.title}</p>
               <p><strong>教師:</strong> {selectedCourse?.teacherName}</p>
-              <p><strong>日時:</strong> {selectedAvailability?.startTime.toDate().toLocaleString('ja-JP')}</p>
+              <p><strong>日時:</strong> {selectedAvailability?.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
             {loading && <div className="flex justify-center mt-4"><Spinner /></div>}
             {error && <Alert message={error} type="error" />}
@@ -187,29 +188,24 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
           <div className="text-center py-4">
             <h3 className="text-lg font-medium text-green-700">予約が完了しました！</h3>
             <p className="mt-2 text-gray-600">ご予約ありがとうございます。詳細はマイポータルでご確認ください。</p>
-            <button onClick={() => { onBookingSuccess(); onClose(); }} className="mt-6 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700">
-              閉じる
+            {/* Fix: Complete the button that was cut off in the provided file content. */}
+            <button onClick={() => { onBookingSuccess(); onClose(); }} className="mt-6 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                閉じる
             </button>
           </div>
         );
+      default:
+        return null;
     }
   };
 
+  // Fix: Add a return statement to the component to render JSX, resolving the type error.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 transform transition-all">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold text-gray-800">クラスを予約</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <CloseIcon className="w-6 h-6"/>
-          </button>
-        </div>
-        <div className="p-6">
-          {renderStep()}
-        </div>
-      </div>
-    </div>
+    <Modal title="クラスを予約" onClose={onClose}>
+      {renderStep()}
+    </Modal>
   );
 };
 
+// Fix: Add a default export to resolve the import error in StudentPortal.tsx.
 export default BookingModal;

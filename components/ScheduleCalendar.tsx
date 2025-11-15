@@ -36,7 +36,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ bookings, users, on
                 </div>
                  <div>
                   <p className="text-gray-500">日時</p>
-                  <p className="font-medium text-gray-800">{booking.startTime.toDate().toLocaleString('ja-JP')}</p>
+                  <p className="font-medium text-gray-800">{booking.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
             </div>

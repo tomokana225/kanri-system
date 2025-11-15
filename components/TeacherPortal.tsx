@@ -114,7 +114,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                     <div>
                       <p className="font-semibold text-blue-800">{b.courseTitle}</p>
                       <p className="text-sm text-gray-600">生徒: {b.studentName}</p>
-                      <p className="text-sm text-gray-500 mt-1">{b.startTime.toDate().toLocaleString('ja-JP')}</p>
+                      <p className="text-sm text-gray-500 mt-1">{b.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                     <button onClick={() => handleOpenChatFromBooking(b)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 transition-colors">
                         <ChatIcon />
@@ -181,7 +181,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                 {completedBookings.map(b => (
                   <li key={b.id} className="py-3">
                     <p className="font-semibold">{b.courseTitle} ({b.studentName})</p>
-                    <p className="text-sm text-gray-500 mb-2">{b.startTime.toDate().toLocaleDateString('ja-JP')}</p>
+                    <p className="text-sm text-gray-500 mb-2">{b.startTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</p>
                     <button onClick={() => {setSelectedBooking(b); setIsFeedbackModalOpen(true);}} className="text-sm text-blue-600 hover:underline">
                       {b.feedback ? 'フィードバックを編集' : 'フィードバックを記入'}
                     </button>
