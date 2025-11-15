@@ -1,5 +1,6 @@
 
 
+
 export interface AppConfig {
     firebase: {
         apiKey: string;
@@ -39,7 +40,7 @@ export const getConfig = (): Promise<AppConfig> => {
             return config as AppConfig;
         } catch (error) {
             // If API fails (e.g., in preview), use mock config to allow the app to run.
-            console.warn(`[開発モード] ${error instanceof Error ? error.message : '設定の読み込みに失敗'}. モック設定を使用します。UIテストのため、URLに ?dev_role=student | teacher | admin を追加してください。`);
+            console.warn(`[開発モード] ${error instanceof Error ? error.message : '設定の読み込みに失敗'}. モック設定を使用します。`);
             return {
                 firebase: {
                     apiKey: "MOCK_API_KEY",

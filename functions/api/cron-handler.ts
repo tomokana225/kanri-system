@@ -19,7 +19,6 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { Booking } from '../../types';
-import { Timestamp } from 'firebase/firestore';
 
 
 interface Env {
@@ -81,7 +80,7 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
         let notificationCount = 0;
 
         for (const booking of bookingsToRemind) {
-            const startTime = (booking.startTime as Timestamp).toDate().toLocaleString('ja-JP');
+            const startTime = booking.startTime.toDate().toLocaleString('ja-JP');
             const studentMessage = `リマインダー: ${booking.courseTitle} の授業が ${startTime} に始まります。`;
             const teacherMessage = `リマインダー: ${booking.studentName}さんとの ${booking.courseTitle} の授業が ${startTime} に始まります。`;
             

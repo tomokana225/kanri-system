@@ -3,6 +3,9 @@ import { User, Notification } from '../types';
 import { BellIcon, LogoutIcon, MenuIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
 import { subscribeToUserNotifications, markAllNotificationsAsRead } from '../services/firebase';
+// Fix: Import firebase to use firebase.firestore.Timestamp for mock data.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 interface HeaderProps {
   user: User;
@@ -17,6 +20,17 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar }) => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
+    const isDevMode = user.id.startsWith('dev-');
+    if (isDevMode) {
+        // Mock notifications for dev mode
+        const mockNotifs = [
+            { id: 'n1', userId: user.id, message: 'モック通知: クラスのリマインダー', read: false, createdAt: new Date() },
+            { id: 'n2', userId: user.id, message: 'モック通知: 新しいメッセージ', read: true, createdAt: new Date(Date.now() - 3600 * 1000) },
+        ].map(n => ({...n, createdAt: firebase.firestore.Timestamp.fromDate(n.createdAt)}));
+        setNotifications(mockNotifs as Notification[]);
+        return;
+    }
+
     const unsubscribe = subscribeToUserNotifications(user.id, (newNotifications) => {
       setNotifications(newNotifications);
     });

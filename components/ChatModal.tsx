@@ -4,6 +4,7 @@ import { getChatId, sendChatMessage, getChatMessages, uploadImageToStorage, mark
 import Modal from './Modal';
 import Spinner from './Spinner';
 import { PaperclipIcon, CheckIcon } from './icons';
+import firebase from 'firebase/compat/app';
 
 interface ChatModalProps {
   currentUser: User;
@@ -27,6 +28,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
   }, [messages]);
 
   useEffect(() => {
+    const isDevMode = currentUser.id.startsWith('dev-');
+    if (isDevMode) return;
+
     const messagesToMark = messages.filter(
       m => m.senderId === otherUser.id && !(m.readBy?.includes(currentUser.id))
     );
@@ -37,10 +41,20 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
 
 
   useEffect(() => {
+    const isDevMode = currentUser.id.startsWith('dev-');
+    if (isDevMode) {
+        const mockTimestamp = (minutesAgo: number) => firebase.firestore.Timestamp.fromDate(new Date(Date.now() - minutesAgo * 60 * 1000));
+        setMessages([
+            { id: 'm1', senderId: otherUser.id!, createdAt: mockTimestamp(5), type: 'text', text: 'こんにちは！来週の授業の件で質問があります。', readBy: [currentUser.id, otherUser.id!] },
+            { id: 'm2', senderId: currentUser.id, createdAt: mockTimestamp(4), type: 'text', text: 'はい、こんにちは！どうぞ、何でも聞いてください。', readBy: [currentUser.id, otherUser.id!] },
+            { id: 'm3', senderId: otherUser.id!, createdAt: mockTimestamp(3), type: 'text', text: 'ありがとうございます。何か準備しておくものはありますか？', readBy: [currentUser.id] },
+        ]);
+        setLoading(false);
+        return;
+    }
+
     let unsubscribe: (() => void) | null = null;
-    const initialLoading = messages.length === 0;
-    if(initialLoading) setLoading(true);
-    
+    setLoading(true);
     setError('');
     
     getChatMessages(
@@ -61,7 +75,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [chatId]);
+  }, [chatId, currentUser.id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

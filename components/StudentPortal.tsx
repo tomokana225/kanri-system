@@ -42,8 +42,8 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
       const mockPastTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() - hours * 60 * 60 * 1000));
       
       const mockCourses: Course[] = [
-        { id: 'c1', title: '英会話初級', description: '...', teacherId: 'dev-teacher-id', teacherName: '田中先生', studentIds: [user.id] },
-        { id: 'c2', title: 'ビジネス英語', description: '...', teacherId: 'dev-teacher-id-2', teacherName: '鈴木先生', studentIds: [user.id] }
+        { id: 'c1', title: '英会話初級', description: '日常会話の基礎を学びます。', teacherId: 'dev-teacher-id', teacherName: '田中先生', studentIds: [user.id] },
+        { id: 'c2', title: 'ビジネス英語', description: '会議やメールで使える表現を学びます。', teacherId: 'dev-teacher-id-2', teacherName: '鈴木先生', studentIds: [user.id] }
       ];
       const mockBookings: Booking[] = [
         { id: 'b1', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id', courseId: 'c1', courseTitle: '英会話初級', startTime: mockTimestamp(25), endTime: mockTimestamp(26), status: 'confirmed' },
