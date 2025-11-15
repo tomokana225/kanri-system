@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { initializeFirebase, getUserProfile, createUserProfile } from './services/firebase';
-import { User, UserRole } from './types';
+import { User, UserRole, Notification } from './types';
 import Login from './components/Login';
 import Header from './components/Header';
 import StudentPortal from './components/StudentPortal';
@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [authInstance, setAuthInstance] = useState<firebase.auth.Auth | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [navigationRequest, setNavigationRequest] = useState<Notification['link'] | null>(null);
 
   const handleDevModeLogin = (role: UserRole) => {
     console.warn(`[開発モード] ${role}としてログインしています。表示されているデータはモックです。`);
@@ -105,6 +106,14 @@ const App: React.FC = () => {
     }
   };
 
+  const handleNavigationRequest = (link: Notification['link']) => {
+    setNavigationRequest(link);
+  };
+
+  const handleNavigationComplete = () => {
+    setNavigationRequest(null);
+  };
+
   if (initializationError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -158,11 +167,16 @@ const App: React.FC = () => {
     <div className="h-full bg-gray-100 flex flex-col">
       {user ? (
         <>
-          <Header user={user} onLogout={handleLogout} onToggleSidebar={() => setIsSidebarOpen(prev => !prev)} />
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+            onNavigate={handleNavigationRequest}
+          />
           <div className="flex-1 flex overflow-hidden">
-            {user.role === 'student' && <StudentPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
-            {user.role === 'teacher' && <TeacherPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
-            {user.role === 'admin' && <AdminPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
+            {user.role === 'student' && <StudentPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} navigationRequest={navigationRequest} onNavigationComplete={handleNavigationComplete} />}
+            {user.role === 'teacher' && <TeacherPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} navigationRequest={navigationRequest} onNavigationComplete={handleNavigationComplete} />}
+            {user.role === 'admin' && <AdminPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} navigationRequest={navigationRequest} onNavigationComplete={handleNavigationComplete} />}
           </div>
         </>
       ) : (

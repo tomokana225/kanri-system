@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Booking, Availability } from '../types';
+import { User, Booking, Availability, Notification } from '../types';
 import { getBookingsForUser, getAvailabilitiesForTeacher, deleteAvailability } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
@@ -16,11 +16,13 @@ interface PortalProps {
   user: User;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
+  navigationRequest: Notification['link'] | null;
+  onNavigationComplete: () => void;
 }
 
 type TeacherView = 'schedule' | 'availability' | 'completed' | 'chat';
 
-const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
+const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen, navigationRequest, onNavigationComplete }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,24 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [chatPartner, setChatPartner] = useState<Partial<User> | null>(null);
+
+  useEffect(() => {
+    if (navigationRequest) {
+        if (navigationRequest.type === 'booking') {
+            setActiveView('schedule');
+            setIsSidebarOpen(false);
+        } else if (navigationRequest.type === 'chat' && navigationRequest.payload) {
+            const partner = {
+                id: navigationRequest.payload.partnerId,
+                name: navigationRequest.payload.partnerName,
+                role: navigationRequest.payload.partnerRole
+            };
+            setChatPartner(partner);
+            setIsChatModalOpen(true);
+        }
+        onNavigationComplete();
+    }
+  }, [navigationRequest, onNavigationComplete]);
 
   const fetchData = useCallback(async () => {
     const isDevMode = user.id.startsWith('dev-');

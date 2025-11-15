@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Course, Booking, Availability } from '../types';
+import { User, Course, Booking, Availability, Notification } from '../types';
 import { 
   getAllUsers, 
   getAllCourses, 
@@ -30,6 +30,8 @@ interface PortalProps {
   user: User;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
+  navigationRequest: Notification['link'] | null;
+  onNavigationComplete: () => void;
 }
 
 type ActiveView = 'dashboard' | 'users' | 'courses' | 'bookings' | 'availability' | 'history';
@@ -53,7 +55,7 @@ const AccordionItem: React.FC<{ title: string; children: React.ReactNode }> = ({
 };
 
 
-const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
+const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen, navigationRequest, onNavigationComplete }) => {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -80,6 +82,17 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const userMap = new Map(users.filter(u => u && u.id && u.name && typeof u.name === 'string').map(u => [u.id, u.name]));
+  
+  useEffect(() => {
+    if (navigationRequest) {
+        if (navigationRequest.type === 'booking') {
+            setActiveView('bookings');
+            setIsSidebarOpen(false);
+        }
+        // Admin portal does not handle chat notifications
+        onNavigationComplete();
+    }
+  }, [navigationRequest, onNavigationComplete]);
 
   const fetchData = useCallback(async () => {
     const isDevMode = user.id.startsWith('dev-');

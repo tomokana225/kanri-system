@@ -238,6 +238,7 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
             message: `「${bookingData.courseTitle}」の予約が確定しました。`,
             read: false,
             createdAt: firebase.firestore.Timestamp.now(),
+            link: { type: 'booking' }
         });
 
         const teacherNotifRef = db.collection('notifications').doc();
@@ -246,6 +247,7 @@ export const createBooking = async (bookingData: Omit<Booking, 'id'>, availabili
             message: `${bookingData.studentName}さんから「${bookingData.courseTitle}」の新しい予約が入りました。`,
             read: false,
             createdAt: firebase.firestore.Timestamp.now(),
+            link: { type: 'booking' }
         });
         await batch.commit();
 
@@ -295,13 +297,17 @@ export const updateBookingStatus = async (bookingId: string, status: Booking['st
             batch.set(studentNotifRef, {
                 userId: booking.studentId,
                 message: `「${booking.courseTitle}」の予約がキャンセルされました。`,
-                read: false, createdAt: firebase.firestore.Timestamp.now()
+                read: false,
+                createdAt: firebase.firestore.Timestamp.now(),
+                link: { type: 'booking' }
             });
             const teacherNotifRef = db.collection('notifications').doc();
             batch.set(teacherNotifRef, {
                 userId: booking.teacherId,
                 message: `${booking.studentName}さんが「${booking.courseTitle}」の予約をキャンセルしました。`,
-                read: false, createdAt: firebase.firestore.Timestamp.now()
+                read: false,
+                createdAt: firebase.firestore.Timestamp.now(),
+                link: { type: 'booking' }
             });
             await batch.commit();
         }
@@ -382,7 +388,10 @@ export const sendChatMessage = async (
     message: notifMessage,
     read: false,
     createdAt: firebase.firestore.Timestamp.now(),
-    link: `/chat/${sender.id}` // Example link to open chat
+    link: {
+        type: 'chat',
+        payload: { partnerId: sender.id, partnerName: sender.name, partnerRole: sender.role }
+    }
   });
   
   await batch.commit();

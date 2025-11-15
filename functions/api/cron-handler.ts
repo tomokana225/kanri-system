@@ -91,7 +91,7 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
                 message: studentMessage,
                 read: false,
                 createdAt: firebase.firestore.Timestamp.now(),
-                link: `/my-portal`
+                link: { type: 'booking' }
             });
 
             // Notification for teacher
@@ -101,7 +101,7 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
                 message: teacherMessage,
                 read: false,
                 createdAt: firebase.firestore.Timestamp.now(),
-                link: `/teacher-dashboard`
+                link: { type: 'booking' }
             });
 
             // Mark booking as reminder sent

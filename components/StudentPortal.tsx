@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Course, Booking } from '../types';
+import { User, Course, Booking, Notification } from '../types';
 import { getCoursesForStudent, getBookingsForUser, updateBookingStatus } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
@@ -16,11 +16,13 @@ interface PortalProps {
   user: User;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
+  navigationRequest: Notification['link'] | null;
+  onNavigationComplete: () => void;
 }
 
 type StudentView = 'bookings' | 'chat';
 
-const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen }) => {
+const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarOpen, navigationRequest, onNavigationComplete }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,24 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [chatPartner, setChatPartner] = useState<Partial<User> | null>(null);
+
+  useEffect(() => {
+    if (navigationRequest) {
+        if (navigationRequest.type === 'booking') {
+            setActiveView('bookings');
+            setIsSidebarOpen(false);
+        } else if (navigationRequest.type === 'chat' && navigationRequest.payload) {
+            const partner = {
+                id: navigationRequest.payload.partnerId,
+                name: navigationRequest.payload.partnerName,
+                role: navigationRequest.payload.partnerRole
+            };
+            setChatPartner(partner);
+            setIsChatModalOpen(true);
+        }
+        onNavigationComplete();
+    }
+  }, [navigationRequest, onNavigationComplete]);
 
   const fetchData = useCallback(async () => {
     const isDevMode = user.id.startsWith('dev-');

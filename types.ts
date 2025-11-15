@@ -60,7 +60,10 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: Timestamp;
-  link?: string;
+  link?: {
+    type: 'chat' | 'booking';
+    payload?: Record<string, any>;
+  };
 }
 
 // For Chat feature

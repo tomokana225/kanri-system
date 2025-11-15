@@ -11,9 +11,10 @@ interface HeaderProps {
   user: User;
   onLogout: () => void;
   onToggleSidebar: () => void;
+  onNavigate: (link: Notification['link']) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavigate }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
@@ -24,8 +25,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar }) => {
     if (isDevMode) {
         // Mock notifications for dev mode
         const mockNotifs = [
-            { id: 'n1', userId: user.id, message: 'モック通知: クラスのリマインダー', read: false, createdAt: new Date() },
-            { id: 'n2', userId: user.id, message: 'モック通知: 新しいメッセージ', read: true, createdAt: new Date(Date.now() - 3600 * 1000) },
+            { id: 'n1', userId: user.id, message: 'モック通知: クラスのリマインダー', read: false, createdAt: new Date(), link: { type: 'booking' } },
+            { id: 'n2', userId: user.id, message: 'モック通知: 新しいメッセージ', read: true, createdAt: new Date(Date.now() - 3600 * 1000), link: { type: 'chat', payload: { partnerId: 'dev-teacher-1', partnerName: '田中先生' } } },
         ].map(n => ({...n, createdAt: firebase.firestore.Timestamp.fromDate(n.createdAt)}));
         setNotifications(mockNotifs as Notification[]);
         return;
@@ -63,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar }) => {
               <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
             )}
           </button>
-          {showNotifications && <NotificationPanel notifications={notifications} onClose={() => setShowNotifications(false)} />}
+          {showNotifications && <NotificationPanel notifications={notifications} onClose={() => setShowNotifications(false)} onNavigate={onNavigate} />}
         </div>
         <button
           onClick={onLogout}
