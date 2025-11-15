@@ -155,7 +155,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-100 flex flex-col">
+    <div className="h-full bg-gray-100 flex flex-col">
       {user ? (
         <>
           <Header user={user} onLogout={handleLogout} onToggleSidebar={() => setIsSidebarOpen(prev => !prev)} />

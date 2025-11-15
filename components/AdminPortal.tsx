@@ -22,7 +22,7 @@ import BookingDetailModal from './BookingDetailModal';
 import AdminAvailabilityModal from './AdminAvailabilityModal';
 import AdminManualBookingModal from './AdminManualBookingModal';
 import Sidebar from './Sidebar';
-import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon, ChevronDownIcon } from './icons';
+import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon, ChevronDownIcon, ListIcon } from './icons';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 
@@ -32,7 +32,7 @@ interface PortalProps {
   setIsSidebarOpen: (isOpen: boolean) => void;
 }
 
-type ActiveView = 'dashboard' | 'users' | 'courses' | 'bookings' | 'availability';
+type ActiveView = 'dashboard' | 'users' | 'courses' | 'bookings' | 'availability' | 'history';
 
 const AccordionItem: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,6 +63,10 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Pagination state for history
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   // Modal states
   const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
@@ -81,6 +85,7 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
     const isDevMode = user.id.startsWith('dev-');
     if (isDevMode) {
         const mockTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() + hours * 60 * 60 * 1000));
+        const mockPastTimestamp = (hours: number) => firebase.firestore.Timestamp.fromDate(new Date(new Date().getTime() - hours * 60 * 60 * 1000));
         const mockUsers: User[] = [
             { id: 'dev-admin-id', name: '開発用管理者', email: 'admin@example.com', role: 'admin' },
             { id: 'dev-teacher-1', name: '田中先生', email: 'teacher1@example.com', role: 'teacher' },
@@ -94,6 +99,8 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
         ];
         const mockBookings: Booking[] = [
             { id: 'b1', studentId: 'dev-student-1', studentName: '佐藤学生', teacherId: 'dev-teacher-1', courseId: 'c1', courseTitle: '英会話初級', startTime: mockTimestamp(25), endTime: mockTimestamp(26), status: 'confirmed' },
+            { id: 'b2-past', studentId: 'dev-student-2', studentName: '伊藤学生', teacherId: 'dev-teacher-2', courseId: 'c2', courseTitle: 'ビジネス英語', startTime: mockPastTimestamp(24), endTime: mockPastTimestamp(23), status: 'completed' },
+            { id: 'b3-past-cancelled', studentId: 'dev-student-1', studentName: '佐藤学生', teacherId: 'dev-teacher-1', courseId: 'c1', courseTitle: '英会話初級', startTime: mockPastTimestamp(48), endTime: mockPastTimestamp(47), status: 'cancelled' },
         ];
         const mockAvailabilities: Availability[] = [
              { id: 'a1', teacherId: 'dev-teacher-1', startTime: mockTimestamp(3), endTime: mockTimestamp(4), status: 'available' },
@@ -225,6 +232,21 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
     }
 };
 
+  const NavLink: React.FC<{ view: ActiveView; label: string; icon: React.ReactNode }> = ({ view, label, icon }) => (
+    <button
+      onClick={() => {
+          setActiveView(view);
+          setIsSidebarOpen(false); // Close sidebar on mobile after selection
+      }}
+      className={`flex items-center w-full px-4 py-3 text-sm font-medium text-left rounded-lg transition-colors duration-200 ${
+          activeView === view ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+      }`}
+      >
+      {icon}
+      <span className="ml-3">{label}</span>
+    </button>
+  );
+
   const renderContent = () => {
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner /></div>;
     if (error) return <Alert message={error} type="error" />;
@@ -353,47 +375,77 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
         return (
             <div className="p-6 bg-white rounded-xl shadow-md">
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-3xl font-bold text-gray-800">教師の空き時間管理</h1>
+                    <h1 className="text-3xl font-bold text-gray-800">空き時間管理</h1>
                     <button onClick={() => setIsAdminAvailabilityModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
                         <AddIcon /> <span>空き時間を追加</span>
                     </button>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto">
                     {teachers.map(teacher => (
                         <AccordionItem key={teacher.id} title={teacher.name}>
-                            {availabilitiesByTeacher[teacher.id] && availabilitiesByTeacher[teacher.id].length > 0 ? (
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">日時</th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
-                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {availabilitiesByTeacher[teacher.id].sort((a,b) => a.startTime.toMillis() - b.startTime.toMillis()).map(avail => (
-                                            <tr key={avail.id}>
-                                                <td className="px-4 py-3 text-sm text-gray-800">{avail.startTime.toDate().toLocaleString('ja-JP')}</td>
-                                                <td className="px-4 py-3 text-sm">
-                                                    {avail.status === 'booked' ? (
-                                                        <span className="font-semibold text-red-600">予約済み ({userMap.get(avail.studentId || '') || '不明'})</span>
-                                                    ) : (
-                                                        <span className="text-green-600">予約可能</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <button onClick={() => handleDeleteAvailability(avail.id)} className="text-red-600 hover:text-red-900"><DeleteIcon /></button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            {(availabilitiesByTeacher[teacher.id] && availabilitiesByTeacher[teacher.id].length > 0) ? (
+                                <ul className="divide-y divide-gray-100">
+                                    {availabilitiesByTeacher[teacher.id]
+                                    .filter(a => a.status === 'available' && a.startTime.toDate() > new Date())
+                                    .sort((a,b) => a.startTime.toMillis() - b.startTime.toMillis())
+                                    .map(avail => (
+                                        <li key={avail.id} className="py-2 flex justify-between items-center">
+                                            <span>{avail.startTime.toDate().toLocaleString('ja-JP')}</span>
+                                            <button onClick={() => handleDeleteAvailability(avail.id)} className="text-red-500 hover:text-red-700"><DeleteIcon /></button>
+                                        </li>
+                                    ))}
+                                </ul>
                             ) : (
-                                <p className="text-sm text-gray-500 text-center py-4">この教師の空き時間はありません。</p>
+                                <p className="text-sm text-gray-500">登録されている空き時間はありません。</p>
                             )}
                         </AccordionItem>
                     ))}
                 </div>
+            </div>
+        );
+      case 'history':
+        const sortedBookings = bookings.sort((a, b) => b.startTime.toMillis() - a.startTime.toMillis());
+        const paginatedBookings = sortedBookings.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+        const totalPages = Math.ceil(sortedBookings.length / ITEMS_PER_PAGE);
+
+        return (
+            <div className="p-6 bg-white rounded-xl shadow-md">
+                <h1 className="text-3xl font-bold text-gray-800 mb-4">全予約履歴</h1>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">コース</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生徒</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">教師</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">日時</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {paginatedBookings.map(booking => (
+                                <tr key={booking.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.courseTitle}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.studentId) || booking.studentName}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{userMap.get(booking.teacherId)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.startTime.toDate().toLocaleString('ja-JP')}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.status}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {totalPages > 1 && (
+                    <div className="flex justify-between items-center mt-4">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm text-gray-700 bg-white border rounded-md disabled:opacity-50">
+                            前へ
+                        </button>
+                        <span>ページ {currentPage} / {totalPages}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 text-sm text-gray-700 bg-white border rounded-md disabled:opacity-50">
+                            次へ
+                        </button>
+                    </div>
+                )}
             </div>
         );
       default:
@@ -401,40 +453,28 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
     }
   };
 
-  const NavLink: React.FC<{ view: ActiveView; label: string; icon: React.ReactNode }> = ({ view, label, icon }) => (
-    <button
-      onClick={() => {
-        setActiveView(view)
-        setIsSidebarOpen(false); // Close on mobile
-      }}
-      className={`flex items-center w-full px-4 py-3 text-sm font-medium text-left rounded-lg transition-colors duration-200 ${
-        activeView === view ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
-      }`}
-    >
-      {icon}
-      <span className="ml-3">{label}</span>
-    </button>
-  );
-
   return (
     <div className="flex w-full h-full">
-      <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen}>
-          <NavLink view="dashboard" label="ダッシュボード" icon={<DashboardIcon />} />
-          <NavLink view="users" label="ユーザー管理" icon={<UserIcon />} />
-          <NavLink view="courses" label="コース管理" icon={<CourseIcon />} />
-          <NavLink view="bookings" label="予約カレンダー" icon={<CalendarIcon />} />
-          <NavLink view="availability" label="教師の空き時間" icon={<ClockIcon />} />
-      </Sidebar>
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        {renderContent()}
-      </main>
+        <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen}>
+            <div className="space-y-2">
+                <NavLink view="dashboard" label="ダッシュボード" icon={<DashboardIcon />} />
+                <NavLink view="users" label="ユーザー管理" icon={<UserIcon />} />
+                <NavLink view="courses" label="コース管理" icon={<CourseIcon />} />
+                <NavLink view="bookings" label="予約カレンダー" icon={<CalendarIcon />} />
+                <NavLink view="availability" label="空き時間管理" icon={<ClockIcon />} />
+                <NavLink view="history" label="予約履歴" icon={<ListIcon />} />
+            </div>
+        </Sidebar>
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+            {renderContent()}
+        </main>
 
-      {isUserEditModalOpen && selectedUser && <UserEditModal user={selectedUser} onClose={() => setIsUserEditModalOpen(false)} onSave={handleSaveUser} />}
-      {isCreateUserModalOpen && <CreateUserModal onClose={() => setIsCreateUserModalOpen(false)} onCreate={handleCreateUser} />}
-      {isCourseEditModalOpen && <CourseEditModal course={selectedCourse} users={users} onClose={() => setIsCourseEditModalOpen(false)} onSave={handleSaveCourse} />}
-      {isBookingDetailModalOpen && <BookingDetailModal booking={selectedBooking} onClose={() => setIsBookingDetailModalOpen(false)} userMap={userMap}/>}
-      {isAdminAvailabilityModalOpen && <AdminAvailabilityModal teachers={users.filter(u=>u.role==='teacher')} onClose={() => setIsAdminAvailabilityModalOpen(false)} onSaveSuccess={handleSaveSuccess} />}
-      {isManualBookingModalOpen && <AdminManualBookingModal users={users} courses={courses} onClose={() => setIsManualBookingModalOpen(false)} onSaveSuccess={handleSaveSuccess} />}
+        {isUserEditModalOpen && selectedUser && <UserEditModal user={selectedUser} onClose={() => setIsUserEditModalOpen(false)} onSave={handleSaveUser} />}
+        {isCreateUserModalOpen && <CreateUserModal onClose={() => setIsCreateUserModalOpen(false)} onCreate={handleCreateUser} />}
+        {isCourseEditModalOpen && <CourseEditModal course={selectedCourse} users={users} onClose={() => setIsCourseEditModalOpen(false)} onSave={handleSaveCourse} />}
+        {isBookingDetailModalOpen && selectedBooking && <BookingDetailModal booking={selectedBooking} onClose={() => setIsBookingDetailModalOpen(false)} userMap={userMap} />}
+        {isAdminAvailabilityModalOpen && <AdminAvailabilityModal teachers={users.filter(u => u.role === 'teacher')} onClose={() => setIsAdminAvailabilityModalOpen(false)} onSaveSuccess={handleSaveSuccess} />}
+        {isManualBookingModalOpen && <AdminManualBookingModal users={users} courses={courses} onClose={() => setIsManualBookingModalOpen(false)} onSaveSuccess={handleSaveSuccess} />}
     </div>
   );
 };
