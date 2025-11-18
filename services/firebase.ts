@@ -294,8 +294,8 @@ export const requestNotificationPermissionAndSaveToken = async (userId: string):
     let errorMessage = `通知の有効化中にエラーが発生しました: ${err.message}`;
     if (err.code === 'messaging/permission-blocked' || err.code === 'messaging/permission-default') {
         errorMessage = '通知がブロックされています。ブラウザの設定を確認してください。';
-    } else if (err.message.includes('insufficient permissions') || err.message.includes('MISSING_OR_INSUFFICIENT_PERMISSIONS')) {
-        errorMessage = '通知の有効化に失敗しました。Firebaseプロジェクトで「Cloud Messaging API (V1)」が有効になっているか確認してください。';
+    } else if (err.message.includes('insufficient permissions') || err.message.includes('MISSING_OR_INSUFFICIENT_PERMISSIONS') || err.code === 'messaging/insufficient-permission') {
+        errorMessage = '通知の認証に失敗しました。2つの点を確認してください: \n1. Cloudflareの環境変数 `VAPID_KEY` に、Firebaseコンソールの「キーペア」(公開鍵)が正しく設定されていること。\n2. Firebaseプロジェクトで「Cloud Messaging API (V1)」が有効になっていること。';
     }
     return { success: false, message: errorMessage };
   }
