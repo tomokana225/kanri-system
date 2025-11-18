@@ -95,21 +95,35 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
     }
   };
 
-  const handleEnableNotifications = async () => {
-    // Button is disabled if permission is not 'default', so this is an extra safeguard.
-    if (Notification.permission !== 'default') return;
+  const handleNotificationSettingsClick = async () => {
+    // Refresh status every time the button is clicked
+    const currentPermission = window.Notification ? Notification.permission : 'default';
+    setPermissionStatus(currentPermission);
 
-    const result = await requestNotificationPermissionAndSaveToken(user.id);
-    alert(result.message);
-    setPermissionStatus(Notification.permission);
+    switch (currentPermission) {
+      case 'granted':
+        alert('プッシュ通知は既に有効になっています。');
+        break;
+      case 'denied':
+        alert('通知がブロックされています。ブラウザのサイト設定を変更して、このサイトの通知を許可してください。');
+        break;
+      case 'default':
+        const result = await requestNotificationPermissionAndSaveToken(user.id);
+        alert(result.message);
+        setPermissionStatus(Notification.permission); // Update status again after request
+        break;
+      default:
+        alert('通知の状態が不明です。');
+        break;
+    }
   };
 
   const getPermissionButtonTitle = () => {
     switch (permissionStatus) {
       case 'granted':
-        return "プッシュ通知は有効です";
+        return "プッシュ通知は有効です。クリックしてステータスを確認";
       case 'denied':
-        return "通知がブロックされています。ブラウザの設定を変更してください。";
+        return "通知がブロックされています。クリックして詳細を確認";
       default:
         return "プッシュ通知を有効にする";
     }
@@ -135,10 +149,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
           <span className="text-gray-600 hidden sm:block">ようこそ、{user.name}さん</span>
           
           <button 
-            onClick={handleEnableNotifications}
-            disabled={permissionStatus !== 'default'}
+            onClick={handleNotificationSettingsClick}
             title={getPermissionButtonTitle()}
-            className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             {permissionStatus === 'granted' && <BellCheckIcon className="text-green-600" />}
             {permissionStatus === 'denied' && <BellSlashIcon className="text-red-600" />}
