@@ -7,7 +7,7 @@ import 'firebase/compat/storage';
 import 'firebase/compat/messaging';
 
 import { AppConfig, getConfig } from './config';
-import { User, Course, Booking, Availability, Notification, Message } from '../types';
+import type { User, Course, Booking, Availability, Notification, Message } from '../types';
 
 let firebaseApp: firebase.app.App;
 let auth: firebase.auth.Auth;

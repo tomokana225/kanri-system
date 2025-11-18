@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Notification } from '../types';
+import type { User, Notification } from '../types';
 import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
 import { subscribeToUserNotifications, markAllNotificationsAsRead, requestNotificationPermissionAndSaveToken } from '../services/firebase';
