@@ -344,14 +344,49 @@ export const initializeMessagingListener = (onMessageReceived: (payload: any) =>
 
 export const sendTestNotification = async (userId: string, senderName: string): Promise<void> => {
     await initializeFirebase();
-    const notification = {
+
+    const title = 'テスト通知';
+    const body = `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`;
+
+    // 1. アプリ内UIに表示するための通知をFirestoreに作成します
+    const notificationForDb = {
         userId: userId,
-        message: `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`,
+        message: body,
         read: false,
         createdAt: firebase.firestore.Timestamp.now(),
-        link: null // No specific link for test notifications
+        link: null
     };
-    await db.collection('notifications').add(notification);
+    await db.collection('notifications').add(notificationForDb);
+
+    // 2. 実際のプッシュ通知を送信するためにバックエンド関数を呼び出します
+    try {
+        const response = await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, title, body }),
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'プッシュ通知APIの呼び出しに失敗しました');
+        }
+
+        const result = await response.json();
+        if (result.success && result.fcmResult.failure > 0) {
+             console.warn(`[プッシュ通知] 一部のデバイスへの送信に失敗しました。成功: ${result.fcmResult.success}, 失敗: ${result.fcmResult.failure}`);
+        } else if (!result.success) {
+            throw new Error(result.error || 'プッシュ通知の送信に失敗しました');
+        }
+
+        console.log('プッシュ通知がAPI経由で正常に送信されました。');
+
+    } catch (error) {
+        console.error("プッシュ通知の送信に失敗しました:", error);
+        // 呼び出し元のコンポーネント（AdminPortal）がエラーをキャッチしてアラートを表示できるように、エラーをスローします。
+        // DBへの書き込みはすでに行われているため、ユーザーはアプリ内で通知を見ることができます。
+        // ここでのエラーは、特にプッシュ部分に関するものです。
+        throw error;
+    }
 };
 
 
