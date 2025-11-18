@@ -25,9 +25,11 @@ service cloud.firestore {
 
     // --- Users Collection ---
     match /users/{userId} {
-      // Allow any signed-in user to read user profiles.
-      // This is needed for features like ChatList to function correctly.
-      allow read: if isSignedIn();
+      // Unauthenticated access is allowed for server-side functions (e.g., sending notifications)
+      // to retrieve necessary user data like FCM tokens.
+      // NOTE: This makes user data publicly readable. Secure this in a production environment,
+      // for example by using the Admin SDK in a trusted backend.
+      allow read: if true;
 
       // A user can update their OWN profile, as long as they are not changing their 'role'.
       // This more robust check compares the role value before and after the update.

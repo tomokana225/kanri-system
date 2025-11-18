@@ -42,10 +42,14 @@ const initializeFirebaseInWorker = (env: Env) => {
  */
 async function getAccessToken(clientEmail: string, privateKey: string): Promise<string> {
     // 1. Prepare the private key for the Web Crypto API
-    const key = privateKey.replace(/\\n/g, '\n');
-    const pemHeader = '-----BEGIN PRIVATE KEY-----';
-    const pemFooter = '-----END PRIVATE KEY-----';
-    const pemContents = key.substring(pemHeader.length, key.length - pemFooter.length).replace(/\s/g, '');
+    // A more robust way to handle the private key from environment variables
+    const pemContents = privateKey
+        .replace('-----BEGIN PRIVATE KEY-----', '')
+        .replace('-----END PRIVATE KEY-----', '')
+        .replace(/\\n/g, '') // remove literal '\n' if present
+        .replace(/\n/g, '')  // remove actual newlines
+        .replace(/\s/g, ''); // remove any other whitespace
+
     const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
 
     const importedKey = await crypto.subtle.importKey(
