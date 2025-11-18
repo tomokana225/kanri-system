@@ -186,12 +186,238 @@ export const addRecurringAvailabilities = async (
   await batch.commit();
 };
 
-
 export const getAvailabilitiesForTeacher = async (teacherId: string, fetchAll: boolean = false): Promise<Availability[]> => {
     await initializeFirebase();
-    const q = db.collection('availabilities').where('teacherId', '==', teacherId);
+    let q = db.collection('availabilities').where('teacherId', '==', teacherId);
+     if (!fetchAll) {
+        q = q.where('startTime', '>=', firebase.firestore.Timestamp.now());
+    }
     const querySnapshot = await q.get();
-    const allAvailabilities = querySnapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Availability>(doc));
+    return querySnapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Availability>(doc));
+};
 
-    if (fetchAll) {
-      return all
+export const getAllAvailabilities = async (): Promise<Availability[]> => {
+    await initializeFirebase();
+    const snapshot = await db.collection('availabilities').get();
+    return snapshot.docs.map(doc => docToObject<Availability>(doc));
+};
+
+export const deleteAvailability = async (availabilityId: string): Promise<void> => {
+    await initializeFirebase();
+    await db.collection('availabilities').doc(availabilityId).delete();
+};
+
+
+// Booking Functions
+export const getBookingsForUser = async (userId: string, role: 'student' | 'teacher'): Promise<Booking[]> => {
+    await initializeFirebase();
+    const field = role === 'student' ? 'studentId' : 'teacherId';
+    const q = db.collection('bookings').where(field, '==', userId).orderBy('startTime', 'desc');
+    const querySnapshot = await q.get();
+    return querySnapshot.docs.map(doc => docToObject<Booking>(doc));
+};
+
+export const getAllBookings = async (): Promise<Booking[]> => {
+    await initializeFirebase();
+    const snapshot = await db.collection('bookings').orderBy('startTime', 'desc').get();
+    return snapshot.docs.map(doc => docToObject<Booking>(doc));
+};
+
+export const updateBookingStatus = async (bookingId: string, status: Booking['status']): Promise<void> => {
+    await initializeFirebase();
+    await db.collection('bookings').doc(bookingId).update({ status });
+};
+
+export const createBooking = async (newBooking: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
+    await initializeFirebase();
+    const bookingRef = db.collection('bookings').doc();
+    const availabilityRef = db.collection('availabilities').doc(availabilityId);
+
+    await db.runTransaction(async (transaction) => {
+        const availabilityDoc = await transaction.get(availabilityRef);
+        if (!availabilityDoc.exists || availabilityDoc.data()?.status === 'booked') {
+            throw new Error("この時間枠はたった今予約されました。");
+        }
+        transaction.set(bookingRef, newBooking);
+        transaction.update(availabilityRef, { status: 'booked', studentId: newBooking.studentId });
+    });
+};
+
+export const createManualBooking = async (newBooking: Omit<Booking, 'id'>): Promise<void> => {
+    await initializeFirebase();
+    await db.collection('bookings').add(newBooking);
+};
+
+
+// Feedback Functions
+export const submitFeedback = async (bookingId: string, feedback: { rating: number, comment: string }): Promise<void> => {
+    await initializeFirebase();
+    await db.collection('bookings').doc(bookingId).update({ feedback });
+};
+
+// Notification & Messaging Functions
+const saveFCMToken = async (userId: string, token: string): Promise<void> => {
+    await initializeFirebase();
+    const userRef = db.collection('users').doc(userId);
+    await userRef.update({
+        fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
+    });
+};
+
+export const requestNotificationPermissionAndSaveToken = async (userId: string): Promise<{ success: boolean; message: string; }> => {
+  if (!firebase.messaging.isSupported()) {
+    return { success: false, message: 'このブラウザはプッシュ通知をサポートしていません。' };
+  }
+  await initializeFirebase();
+  const config = await getConfig();
+
+  if (!config.vapidKey || config.vapidKey.startsWith('MOCK_')) {
+      return { success: false, message: 'サーバー設定が不完全なため、通知を有効化できません。管理者に連絡してください。' };
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      console.log('Notification permission granted.');
+      const token = await messaging.getToken({ vapidKey: config.vapidKey });
+      if (token) {
+        await saveFCMToken(userId, token);
+        return { success: true, message: 'プッシュ通知が有効になりました！' };
+      } else {
+        return { success: false, message: '通知トークンの取得に失敗しました。後でもう一度お試しください。' };
+      }
+    } else {
+      return { success: false, message: '通知の許可がされませんでした。' };
+    }
+  } catch (err: any) {
+    console.error('An error occurred while retrieving token. ', err);
+    let errorMessage = `通知の有効化中にエラーが発生しました: ${err.message}`;
+    if (err.code === 'messaging/permission-blocked' || err.code === 'messaging/permission-default') {
+        errorMessage = '通知がブロックされています。ブラウザの設定を確認してください。';
+    } else if (err.message.includes('insufficient permissions') || err.message.includes('MISSING_OR_INSUFFICIENT_PERMISSIONS')) {
+        errorMessage = '通知の有効化に失敗しました。Firebaseプロジェクトで「Cloud Messaging API (V1)」が有効になっているか確認してください。';
+    }
+    return { success: false, message: errorMessage };
+  }
+};
+
+
+export const subscribeToUserNotifications = (userId: string, callback: (notifications: Notification[]) => void): () => void => {
+    const q = db.collection('notifications')
+        .where('userId', '==', userId)
+        .orderBy('createdAt', 'desc')
+        .limit(20);
+    
+    return q.onSnapshot(snapshot => {
+        const notifications = snapshot.docs.map(doc => docToObject<Notification>(doc));
+        callback(notifications);
+    });
+};
+
+export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
+    await initializeFirebase();
+    const notificationsRef = db.collection('notifications');
+    const q = notificationsRef.where('userId', '==', userId).where('read', '==', false);
+    const snapshot = await q.get();
+    
+    if (snapshot.empty) return;
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { read: true });
+    });
+    await batch.commit();
+};
+
+export const initializeMessagingListener = (onMessageReceived: (payload: any) => void): (() => void) => {
+    if (messaging) {
+        return messaging.onMessage((payload) => {
+            console.log('Message received. ', payload);
+            onMessageReceived(payload);
+        });
+    }
+    return () => {}; // Return a no-op unsubscribe function if messaging is not supported
+};
+
+
+// Chat Functions
+export const getChatId = (uid1: string, uid2: string): string => {
+  return [uid1, uid2].sort().join('_');
+};
+
+export const getChatMessages = (chatId: string, callback: (messages: Message[]) => void, onError: (error: any) => void): Promise<() => void> => {
+    return new Promise((resolve) => {
+        const unsubscribe = db.collection('chats').doc(chatId).collection('messages')
+            .orderBy('createdAt', 'asc')
+            .onSnapshot(snapshot => {
+                const messages = snapshot.docs.map(doc => docToObject<Message>(doc));
+                callback(messages);
+            }, onError);
+        resolve(unsubscribe);
+    });
+};
+
+export const sendChatMessage = async (chatId: string, messageData: Partial<Message>, sender: User, receiver: Partial<User>): Promise<void> => {
+    await initializeFirebase();
+    const chatRef = db.collection('chats').doc(chatId);
+    const messageRef = chatRef.collection('messages').doc();
+
+    const finalMessageData = {
+        ...messageData,
+        id: messageRef.id,
+        senderId: sender.id,
+        createdAt: firebase.firestore.Timestamp.now(),
+        readBy: [sender.id],
+    };
+
+    const batch = db.batch();
+    batch.set(messageRef, finalMessageData);
+    batch.set(chatRef, { participants: [sender.id, receiver.id] }, { merge: true });
+    await batch.commit();
+};
+
+export const uploadImageToStorage = async (file: File, chatId: string): Promise<string> => {
+    await initializeFirebase();
+    const filePath = `chat_images/${chatId}/${new Date().getTime()}-${file.name}`;
+    const fileRef = storage.ref(filePath);
+    await fileRef.put(file);
+    return await fileRef.getDownloadURL();
+};
+
+export const markMessagesAsRead = async (chatId: string, messageIds: string[], userId: string): Promise<void> => {
+    await initializeFirebase();
+    const batch = db.batch();
+    const messagesRef = db.collection('chats').doc(chatId).collection('messages');
+    messageIds.forEach(msgId => {
+        const docRef = messagesRef.doc(msgId);
+        batch.update(docRef, {
+            readBy: firebase.firestore.FieldValue.arrayUnion(userId)
+        });
+    });
+    await batch.commit();
+};
+
+const getUniqueChatPartners = async (userId: string, roleField: 'studentId' | 'teacherId'): Promise<User[]> => {
+    await initializeFirebase();
+    const partnerRoleField = roleField === 'studentId' ? 'teacherId' : 'studentId';
+    const q = db.collection('bookings').where(roleField, '==', userId);
+    const snapshot = await q.get();
+    
+    if (snapshot.empty) return [];
+    
+    const partnerIds = new Set<string>();
+    snapshot.docs.forEach(doc => {
+        const booking = doc.data() as Booking;
+        partnerIds.add(booking[partnerRoleField]);
+    });
+
+    if (partnerIds.size === 0) return [];
+
+    const usersRef = db.collection('users');
+    const partnersSnapshot = await usersRef.where(firebase.firestore.FieldPath.documentId(), 'in', Array.from(partnerIds)).get();
+
+    return partnersSnapshot.docs.map(doc => docToObject<User>(doc));
+};
+
+export const getUniqueChatPartnersForStudent = (studentId: string) => getUniqueChatPartners(studentId, 'studentId');
+export const getUniqueChatPartnersForTeacher = (teacherId: string) => getUniqueChatPartners(teacherId, 'teacherId');

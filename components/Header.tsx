@@ -102,7 +102,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
 
     switch (currentPermission) {
       case 'granted':
-        alert('プッシュ通知は既に有効になっています。');
+        if (window.confirm('プッシュ通知はすでに有効です。通知設定を再登録しますか？')) {
+            const result = await requestNotificationPermissionAndSaveToken(user.id);
+            alert(result.message);
+            setPermissionStatus(Notification.permission);
+        }
         break;
       case 'denied':
         alert('通知がブロックされています。ブラウザのサイト設定を変更して、このサイトの通知を許可してください。');
@@ -121,7 +125,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   const getPermissionButtonTitle = () => {
     switch (permissionStatus) {
       case 'granted':
-        return "プッシュ通知は有効です。クリックしてステータスを確認";
+        return "プッシュ通知は有効です。クリックして再登録";
       case 'denied':
         return "通知がブロックされています。クリックして詳細を確認";
       default:
