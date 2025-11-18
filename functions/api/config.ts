@@ -7,6 +7,7 @@ interface Env {
   FIREBASE_MESSAGING_SENDER_ID: string;
   FIREBASE_APP_ID: string;
   FIREBASE_MEASUREMENT_ID: string;
+  VAPID_KEY: string;
 }
 
 interface PagesFunctionContext {
@@ -23,7 +24,8 @@ export const onRequest: (context: PagesFunctionContext) => Response | Promise<Re
         'FIREBASE_STORAGE_BUCKET',
         'FIREBASE_MESSAGING_SENDER_ID',
         'FIREBASE_APP_ID',
-        'FIREBASE_MEASUREMENT_ID'
+        'FIREBASE_MEASUREMENT_ID',
+        'VAPID_KEY'
     ];
 
     const missingVars = requiredEnvVars.filter(varName => !env[varName] || env[varName] === '');
@@ -49,7 +51,8 @@ export const onRequest: (context: PagesFunctionContext) => Response | Promise<Re
             messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID,
             appId: env.FIREBASE_APP_ID,
             measurementId: env.FIREBASE_MEASUREMENT_ID,
-        }
+        },
+        vapidKey: env.VAPID_KEY,
     };
 
     return new Response(JSON.stringify(config), {

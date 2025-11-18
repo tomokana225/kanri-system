@@ -1,6 +1,3 @@
-
-
-
 export interface AppConfig {
     firebase: {
         apiKey: string;
@@ -11,6 +8,7 @@ export interface AppConfig {
         appId: string;
         measurementId: string;
     };
+    vapidKey: string;
 }
 
 let configPromise: Promise<AppConfig> | null = null;
@@ -34,7 +32,7 @@ export const getConfig = (): Promise<AppConfig> => {
             const firebaseConfig = config.firebase || {};
             const isFirebaseConfigured = Object.values(firebaseConfig).length === 7 && Object.values(firebaseConfig).every(val => typeof val === 'string' && val.length > 0);
 
-            if (!isFirebaseConfigured) {
+            if (!isFirebaseConfigured || !config.vapidKey) {
                  throw new Error("設定情報が不完全です。Cloudflare Pagesの環境変数がすべて設定されているか確認してください。");
             }
             return config as AppConfig;
@@ -50,7 +48,8 @@ export const getConfig = (): Promise<AppConfig> => {
                     messagingSenderId: "1234567890",
                     appId: "1:1234567890:web:mock123456",
                     measurementId: "G-MOCK12345"
-                }
+                },
+                vapidKey: "MOCK_VAPID_KEY_REPLACE_WITH_REAL_ONE_FOR_TESTING"
             };
         }
     })();

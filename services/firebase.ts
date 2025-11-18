@@ -515,7 +515,11 @@ export const requestNotificationPermissionAndSaveToken = async (userId: string):
             const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
             console.log('Service Worker registered:', swRegistration);
 
-            const fcmToken = await messaging.getToken({ serviceWorkerRegistration: swRegistration });
+            const config = await getConfig();
+            const fcmToken = await messaging.getToken({ 
+                serviceWorkerRegistration: swRegistration,
+                vapidKey: config.vapidKey,
+            });
 
             if (fcmToken) {
                 console.log('FCM Token:', fcmToken);
