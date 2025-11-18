@@ -7,6 +7,7 @@ import StudentPortal from './components/StudentPortal';
 import TeacherPortal from './components/TeacherPortal';
 import AdminPortal from './components/AdminPortal';
 import Spinner from './components/Spinner';
+import PushNotificationManager from './components/PushNotificationManager';
 // Fix: Use Firebase compat imports to resolve module resolution errors.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
@@ -167,6 +168,7 @@ const App: React.FC = () => {
     <div className="h-full bg-gray-100 flex flex-col">
       {user ? (
         <>
+          <PushNotificationManager user={user} />
           <Header
             user={user}
             onLogout={handleLogout}

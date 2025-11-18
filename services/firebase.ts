@@ -4,6 +4,7 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 import 'firebase/compat/storage';
+import 'firebase/compat/messaging';
 
 import { AppConfig, getConfig } from './config';
 import { User, Course, Booking, Availability, Notification, Message } from '../types';
@@ -12,6 +13,8 @@ let firebaseApp: firebase.app.App;
 let auth: firebase.auth.Auth;
 let db: firebase.firestore.Firestore;
 let storage: firebase.storage.Storage;
+let messaging: firebase.messaging.Messaging;
+
 
 let firebaseInitializationPromise: Promise<{ app: firebase.app.App, auth: firebase.auth.Auth, db: firebase.firestore.Firestore, storage: firebase.storage.Storage }> | null = null;
 
@@ -37,6 +40,9 @@ export const initializeFirebase = async (): Promise<{ app: firebase.app.App, aut
       auth = firebase.auth();
       db = firebase.firestore();
       storage = firebase.storage();
+      if (firebase.messaging.isSupported()) {
+        messaging = firebase.messaging();
+      }
 
       return { app: firebaseApp, auth, db, storage };
     } catch (error) {
@@ -490,4 +496,54 @@ export const getUniqueChatPartnersForTeacher = async (teacherId: string): Promis
   const partners = await Promise.all(partnerPromises);
 
   return partners.filter((p): p is User => p !== null);
+};
+
+// Push Notification Functions
+export const requestNotificationPermissionAndSaveToken = async (userId: string): Promise<boolean> => {
+    if (!firebase.messaging.isSupported()) {
+        console.warn("Firebase Messaging is not supported in this browser.");
+        alert("このブラウザはプッシュ通知に対応していません。");
+        return false;
+    }
+    await initializeFirebase();
+    try {
+        const currentPermission = await Notification.requestPermission();
+        if (currentPermission === 'granted') {
+            console.log('Notification permission granted.');
+            const fcmToken = await messaging.getToken();
+
+            if (fcmToken) {
+                console.log('FCM Token:', fcmToken);
+                const userRef = db.collection('users').doc(userId);
+                await userRef.update({
+                    fcmTokens: firebase.firestore.FieldValue.arrayUnion(fcmToken)
+                });
+                return true;
+            } else {
+                console.warn('No registration token available. Request permission to generate one.');
+                return false;
+            }
+        } else {
+            console.log('Unable to get permission to notify.');
+            return false;
+        }
+    } catch (err) {
+        console.error('An error occurred while retrieving token. ', err);
+        return false;
+    }
+}
+
+export const initializeMessagingListener = (
+    onMessageCallback: (payload: firebase.messaging.MessagePayload) => void
+): (() => void) => {
+    if (!messaging) {
+        return () => {};
+    }
+    
+    const unsubscribe = messaging.onMessage((payload) => {
+        console.log('Message received. ', payload);
+        onMessageCallback(payload);
+    });
+
+    return unsubscribe;
 };

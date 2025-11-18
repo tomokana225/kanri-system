@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Notification } from '../types';
-import { BellIcon, LogoutIcon, MenuIcon } from './icons';
+import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
-import { subscribeToUserNotifications, markAllNotificationsAsRead } from '../services/firebase';
+import { subscribeToUserNotifications, markAllNotificationsAsRead, requestNotificationPermissionAndSaveToken } from '../services/firebase';
 // Fix: Import firebase to use firebase.firestore.Timestamp for mock data.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
@@ -17,6 +17,9 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavigate }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
+    window.Notification ? Notification.permission : 'default'
+  );
   
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -45,6 +48,16 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
     }
   };
 
+  const handleEnableNotifications = async () => {
+    const success = await requestNotificationPermissionAndSaveToken(user.id);
+    if (success) {
+        alert('通知が有効になりました。');
+    } else {
+        alert('通知を有効にできませんでした。ブラウザの設定で通知がブロックされていないか確認してください。');
+    }
+    setPermissionStatus(Notification.permission);
+  };
+
   return (
     <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
       <div className="flex items-center">
@@ -55,8 +68,18 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
           Classroom Connect
         </div>
       </div>
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 sm:space-x-4">
         <span className="text-gray-600 hidden sm:block">ようこそ、{user.name}さん</span>
+        
+        <button 
+          onClick={handleEnableNotifications}
+          disabled={permissionStatus === 'granted'}
+          title={permissionStatus === 'granted' ? "通知は有効です" : "プッシュ通知を有効にする"}
+          className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {permissionStatus === 'granted' ? <BellCheckIcon /> : <BellPlusIcon />}
+        </button>
+        
         <div className="relative">
           <button onClick={handleToggleNotifications} className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             <BellIcon />

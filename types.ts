@@ -11,6 +11,7 @@ export interface User {
   email: string;
   role: UserRole;
   courseIds?: string[];
+  fcmTokens?: string[];
 }
 
 export interface Course {
