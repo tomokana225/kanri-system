@@ -6,8 +6,8 @@ try {
   importScripts('/api/firebase-config-for-sw');
   
   // Import the Firebase SDKs. Use a version compatible with the compat libraries.
-  importScripts('https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/9.6.11/firebase-messaging-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/12.5.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/12.5.0/firebase-messaging-compat.js');
 
   // `firebaseConfig` is now available from the first import
   if (typeof firebaseConfig !== 'undefined' && firebase.apps.length === 0) {
