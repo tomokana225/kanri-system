@@ -10,7 +10,8 @@ import {
   deleteCourse,
   getAllBookings,
   getAllAvailabilities,
-  deleteAvailability
+  deleteAvailability,
+  sendTestNotification
 } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
@@ -22,7 +23,7 @@ import BookingDetailModal from './BookingDetailModal';
 import AdminAvailabilityModal from './AdminAvailabilityModal';
 import AdminManualBookingModal from './AdminManualBookingModal';
 import Sidebar from './Sidebar';
-import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon, ChevronDownIcon, ListIcon } from './icons';
+import { AddIcon, EditIcon, DeleteIcon, DashboardIcon, UserIcon, CourseIcon, CalendarIcon, ClockIcon, ChevronDownIcon, ListIcon, BellIcon } from './icons';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 
@@ -190,6 +191,21 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
       }
     }
   };
+
+  const handleSendTestNotification = async (targetUser: User) => {
+    if (!targetUser || !targetUser.id || !targetUser.name) {
+        setError('テスト通知の送信先ユーザー情報が不完全です。');
+        return;
+    }
+    if (window.confirm(`${targetUser.name}さんにテスト通知を送信しますか？`)) {
+        try {
+            await sendTestNotification(targetUser.id, user.name);
+            alert('テスト通知を送信しました。対象ユーザーのデバイスで通知が表示されるか確認してください。');
+        } catch (err: any) {
+            setError(`テスト通知の送信に失敗しました: ${err.message}`);
+        }
+    }
+  };
   
   // Course Handlers
   const handleOpenCourseEdit = (course: Course | null) => {
@@ -312,14 +328,21 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user, index) => (
-                    <tr key={user.id} className={index % 2 === 0 ? undefined : 'bg-gray-50'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
+                  {users.map((u, index) => (
+                    <tr key={u.id} className={index % 2 === 0 ? undefined : 'bg-gray-50'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.role}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                        <button onClick={() => handleOpenUserEdit(user)} className="text-blue-600 hover:text-blue-900"><EditIcon /></button>
-                        <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900"><DeleteIcon /></button>
+                        <button 
+                            onClick={() => handleSendTestNotification(u)} 
+                            className="text-green-600 hover:text-green-900 p-1"
+                            title="テスト通知を送信"
+                        >
+                            <BellIcon className="h-5 w-5" />
+                        </button>
+                        <button onClick={() => handleOpenUserEdit(u)} className="text-blue-600 hover:text-blue-900 p-1"><EditIcon /></button>
+                        <button onClick={() => handleDeleteUser(u.id)} className="text-red-600 hover:text-red-900 p-1"><DeleteIcon /></button>
                       </td>
                     </tr>
                   ))}

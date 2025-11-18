@@ -342,6 +342,19 @@ export const initializeMessagingListener = (onMessageReceived: (payload: any) =>
 };
 
 
+export const sendTestNotification = async (userId: string, senderName: string): Promise<void> => {
+    await initializeFirebase();
+    const notification = {
+        userId: userId,
+        message: `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`,
+        read: false,
+        createdAt: firebase.firestore.Timestamp.now(),
+        link: null // No specific link for test notifications
+    };
+    await db.collection('notifications').add(notification);
+};
+
+
 // Chat Functions
 export const getChatId = (uid1: string, uid2: string): string => {
   return [uid1, uid2].sort().join('_');
