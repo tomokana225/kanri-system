@@ -499,11 +499,11 @@ export const getUniqueChatPartnersForTeacher = async (teacherId: string): Promis
 };
 
 // Push Notification Functions
-export const requestNotificationPermissionAndSaveToken = async (userId: string): Promise<boolean> => {
+export const requestNotificationPermissionAndSaveToken = async (userId: string): Promise<{ success: boolean; message: string }> => {
     if (!firebase.messaging.isSupported() || !('serviceWorker' in navigator)) {
+        const message = "このブラウザはプッシュ通知に対応していません。";
         console.warn("Firebase Messaging or Service Workers are not supported in this browser.");
-        alert("このブラウザはプッシュ通知に対応していません。");
-        return false;
+        return { success: false, message };
     }
     await initializeFirebase();
     try {
@@ -523,18 +523,25 @@ export const requestNotificationPermissionAndSaveToken = async (userId: string):
                 await userRef.update({
                     fcmTokens: firebase.firestore.FieldValue.arrayUnion(fcmToken)
                 });
-                return true;
+                return { success: true, message: '通知が有効になりました。' };
             } else {
+                const message = '通知トークンの取得に失敗しました。後でもう一度お試しください。';
                 console.warn('No registration token available. Request permission to generate one.');
-                return false;
+                return { success: false, message };
             }
-        } else {
-            console.log('Unable to get permission to notify.');
-            return false;
+        } else if (currentPermission === 'denied') {
+            const message = "通知がブロックされています。ブラウザのサイト設定を変更して、通知を許可してください。";
+            console.log('Unable to get permission to notify. Permission denied.');
+            return { success: false, message };
         }
-    } catch (err) {
+        else { // 'default'
+            const message = "通知の許可が保留されました。再度有効にするには、ページをリロードしてからもう一度お試しください。";
+            console.log('Unable to get permission to notify. Permission dismissed.');
+            return { success: false, message };
+        }
+    } catch (err: any) {
         console.error('An error occurred while retrieving token. ', err);
-        return false;
+        return { success: false, message: `通知の有効化中にエラーが発生しました: ${err.message}` };
     }
 }
 

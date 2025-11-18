@@ -96,15 +96,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   };
 
   const handleEnableNotifications = async () => {
-    // Only proceed if permission is in the default state
+    // Button is disabled if permission is not 'default', so this is an extra safeguard.
     if (Notification.permission !== 'default') return;
 
-    const success = await requestNotificationPermissionAndSaveToken(user.id);
-    if (success) {
-        alert('通知が有効になりました。');
-    } else {
-        alert('通知を有効にできませんでした。ブラウザの設定で通知がブロックされていないか確認してください。');
-    }
+    const result = await requestNotificationPermissionAndSaveToken(user.id);
+    alert(result.message);
     setPermissionStatus(Notification.permission);
   };
 
