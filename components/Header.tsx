@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { User, Notification } from '../types';
 import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon, BellSlashIcon, ShareIcon, PlusSquareIcon, CloseIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
+import Toast from './Toast'; // New
 import { subscribeToUserNotifications, markAllNotificationsAsRead, requestNotificationPermissionAndSaveToken } from '../services/firebase';
 // Fix: Import firebase to use firebase.firestore.Timestamp for mock data.
 import firebase from 'firebase/compat/app';
@@ -38,11 +39,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   );
   const [showIosPrompt, setShowIosPrompt] = useState(false);
   
+  // New state and ref for toast notifications
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const previousNotifications = useRef<Notification[]>([]);
+  
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     // Check if we should show the iOS PWA installation prompt
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
     const hasSeenPrompt = localStorage.getItem('hasSeenIosInstallPrompt');
 
@@ -64,7 +69,21 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
     }
 
     const unsubscribe = subscribeToUserNotifications(user.id, (newNotifications) => {
+      // Logic to detect and show a toast for new unread notifications
+      if (previousNotifications.current && previousNotifications.current.length > 0) {
+        const previousIds = new Set(previousNotifications.current.map(n => n.id));
+        // Find the newest notification that is unread and was not present before
+        const newestUnread = newNotifications
+            .filter(n => !n.read && !previousIds.has(n.id))
+            .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())[0]; // Get the most recent one
+
+        if (newestUnread) {
+            setToastMessage(newestUnread.message);
+        }
+      }
+      
       setNotifications(newNotifications);
+      previousNotifications.current = newNotifications; // Update the ref for the next comparison
     });
     return () => unsubscribe();
   }, [user.id]);
@@ -149,6 +168,10 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         </div>
       </header>
       {showIosPrompt && <IosInstallPrompt onClose={handleCloseIosPrompt} />}
+      {/* Render the Toast component when there's a message */}
+      {toastMessage && (
+        <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+      )}
     </>
   );
 };
