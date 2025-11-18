@@ -34,6 +34,12 @@ const initializeFirebaseInWorker = (env: Env) => {
     db = firebase.firestore();
 }
 
+interface PushNotificationRequestBody {
+  userId: string;
+  title: string;
+  body: string;
+}
+
 export const onRequestPost: (context: { request: Request, env: Env }) => Promise<Response> = async ({ request, env }) => {
     try {
         initializeFirebaseInWorker(env);
@@ -42,7 +48,7 @@ export const onRequestPost: (context: { request: Request, env: Env }) => Promise
             throw new Error('Firebaseサーバーキーがサーバー上で設定されていません。');
         }
 
-        const { userId, title, body } = await request.json();
+        const { userId, title, body } = await request.json() as PushNotificationRequestBody;
 
         if (!userId || !title || !body) {
             return new Response(JSON.stringify({ success: false, error: 'userId, title, または body がありません' }), { status: 400 });

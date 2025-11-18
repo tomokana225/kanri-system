@@ -341,6 +341,14 @@ export const initializeMessagingListener = (onMessageReceived: (payload: any) =>
     return () => {}; // Return a no-op unsubscribe function if messaging is not supported
 };
 
+interface PushNotificationApiResponse {
+  success: boolean;
+  error?: string;
+  fcmResult?: {
+    success: number;
+    failure: number;
+  };
+}
 
 export const sendTestNotification = async (userId: string, senderName: string): Promise<void> => {
     await initializeFirebase();
@@ -367,12 +375,12 @@ export const sendTestNotification = async (userId: string, senderName: string): 
         });
         
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData = await response.json() as { error?: string };
             throw new Error(errorData.error || 'プッシュ通知APIの呼び出しに失敗しました');
         }
 
-        const result = await response.json();
-        if (result.success && result.fcmResult.failure > 0) {
+        const result = await response.json() as PushNotificationApiResponse;
+        if (result.success && result.fcmResult && result.fcmResult.failure > 0) {
              console.warn(`[プッシュ通知] 一部のデバイスへの送信に失敗しました。成功: ${result.fcmResult.success}, 失敗: ${result.fcmResult.failure}`);
         } else if (!result.success) {
             throw new Error(result.error || 'プッシュ通知の送信に失敗しました');
