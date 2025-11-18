@@ -364,7 +364,7 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<void> 
 
 // Chat Functions
 export const getChatId = (uid1: string, uid2: string): string => {
-  return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+  return uid1 < uid2 ? `\${uid1}_\${uid2}` : `\${uid2}_\${uid1}`;
 };
 
 export const sendChatMessage = async (
@@ -391,7 +391,7 @@ export const sendChatMessage = async (
 
   // Create a notification for the recipient
   const notifRef = db.collection('notifications').doc();
-  const notifMessage = message.type === 'image' ? `${sender.name}さんから写真が届きました。` : `${sender.name}さんから新しいメッセージです。`;
+  const notifMessage = message.type === 'image' ? `\${sender.name}さんから写真が届きました。` : `\${sender.name}さんから新しいメッセージです。`;
   batch.set(notifRef, {
     userId: recipient.id,
     message: notifMessage,
@@ -457,7 +457,7 @@ export const markMessagesAsRead = async (
 
 export const uploadImageToStorage = async (file: File, chatId: string): Promise<string> => {
     await initializeFirebase();
-    const filePath = `chat_images/${chatId}/${Date.now()}_${file.name}`;
+    const filePath = `chat_images/\${chatId}/\${Date.now()}_\${file.name}`;
     const fileRef = storage.ref(filePath);
     await fileRef.put(file);
     return fileRef.getDownloadURL();
@@ -500,8 +500,8 @@ export const getUniqueChatPartnersForTeacher = async (teacherId: string): Promis
 
 // Push Notification Functions
 export const requestNotificationPermissionAndSaveToken = async (userId: string): Promise<boolean> => {
-    if (!firebase.messaging.isSupported()) {
-        console.warn("Firebase Messaging is not supported in this browser.");
+    if (!firebase.messaging.isSupported() || !('serviceWorker' in navigator)) {
+        console.warn("Firebase Messaging or Service Workers are not supported in this browser.");
         alert("このブラウザはプッシュ通知に対応していません。");
         return false;
     }
@@ -510,7 +510,12 @@ export const requestNotificationPermissionAndSaveToken = async (userId: string):
         const currentPermission = await Notification.requestPermission();
         if (currentPermission === 'granted') {
             console.log('Notification permission granted.');
-            const fcmToken = await messaging.getToken();
+
+            // Explicitly register the service worker and wait for it to be ready.
+            const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+            console.log('Service Worker registered:', swRegistration);
+
+            const fcmToken = await messaging.getToken({ serviceWorkerRegistration: swRegistration });
 
             if (fcmToken) {
                 console.log('FCM Token:', fcmToken);

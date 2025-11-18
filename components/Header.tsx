@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { User, Notification } from '../types';
-import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon } from './icons';
+import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon, BellSlashIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
 import { subscribeToUserNotifications, markAllNotificationsAsRead, requestNotificationPermissionAndSaveToken } from '../services/firebase';
 // Fix: Import firebase to use firebase.firestore.Timestamp for mock data.
@@ -49,6 +49,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   };
 
   const handleEnableNotifications = async () => {
+    // Only proceed if permission is in the default state
+    if (Notification.permission !== 'default') return;
+
     const success = await requestNotificationPermissionAndSaveToken(user.id);
     if (success) {
         alert('通知が有効になりました。');
@@ -56,6 +59,17 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         alert('通知を有効にできませんでした。ブラウザの設定で通知がブロックされていないか確認してください。');
     }
     setPermissionStatus(Notification.permission);
+  };
+
+  const getPermissionButtonTitle = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return "プッシュ通知は有効です";
+      case 'denied':
+        return "通知がブロックされています。ブラウザの設定を変更してください。";
+      default:
+        return "プッシュ通知を有効にする";
+    }
   };
 
   return (
@@ -73,11 +87,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         
         <button 
           onClick={handleEnableNotifications}
-          disabled={permissionStatus === 'granted'}
-          title={permissionStatus === 'granted' ? "通知は有効です" : "プッシュ通知を有効にする"}
+          disabled={permissionStatus !== 'default'}
+          title={getPermissionButtonTitle()}
           className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {permissionStatus === 'granted' ? <BellCheckIcon /> : <BellPlusIcon />}
+          {permissionStatus === 'granted' && <BellCheckIcon className="text-green-600" />}
+          {permissionStatus === 'denied' && <BellSlashIcon className="text-red-600" />}
+          {permissionStatus === 'default' && <BellPlusIcon />}
         </button>
         
         <div className="relative">

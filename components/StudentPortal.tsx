@@ -158,6 +158,13 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
         <div className="space-y-8">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">予約管理</h1>
+                <button
+                    onClick={() => setIsBookingModalOpen(true)}
+                    className="flex items-center justify-center gap-2 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
+                >
+                    <AddIcon />
+                    <span className="hidden sm:inline">クラスを予約</span>
+                </button>
             </div>
             {error && <Alert message={error} type="error" />}
 
