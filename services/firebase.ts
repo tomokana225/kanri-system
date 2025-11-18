@@ -188,10 +188,12 @@ export const addRecurringAvailabilities = async (
 
 export const getAvailabilitiesForTeacher = async (teacherId: string, fetchAll: boolean = false): Promise<Availability[]> => {
     await initializeFirebase();
-    let q = db.collection('availabilities').where('teacherId', '==', teacherId);
-     if (!fetchAll) {
+    let q: firebase.firestore.Query = db.collection('availabilities').where('teacherId', '==', teacherId);
+    if (!fetchAll) {
         q = q.where('startTime', '>=', firebase.firestore.Timestamp.now());
     }
+    // Add orderBy to satisfy the composite index for the range filter and to provide sorted data.
+    q = q.orderBy('startTime', 'asc');
     const querySnapshot = await q.get();
     return querySnapshot.docs.map((doc: firebase.firestore.QueryDocumentSnapshot) => docToObject<Availability>(doc));
 };
