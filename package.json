@@ -1,7 +1,9 @@
 {
-  "name": "class-reservation-system",
+  "name": "pwa-push-demo",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "A simple PWA with Web Push notifications.",
+  "main": "server.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
