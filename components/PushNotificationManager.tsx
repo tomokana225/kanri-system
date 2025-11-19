@@ -11,11 +11,10 @@ const PushNotificationManager: React.FC<PushNotificationManagerProps> = ({ user,
   useEffect(() => {
     if (user) {
       const unsubscribe = initializeMessagingListener((payload) => {
-        const notificationTitle = payload.notification?.title || '新しい通知';
-        const notificationBody = payload.notification?.body || '';
-        
-        // Display a toast instead of an alert for better UX
-        onShowToast(`${notificationTitle}${notificationBody ? `: ${notificationBody}` : ''}`);
+        console.log('Foreground push received:', payload);
+        // We do NOT show a toast here because Header.tsx handles the 'notifications' collection listener
+        // which triggers at the same time (since sendAppAndPushNotification updates both).
+        // This prevents duplicate toasts.
       });
 
       return () => {

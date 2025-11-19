@@ -77,16 +77,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
 
         if (newestUnread) {
             onShowToast(newestUnread.message);
-            
-            // If permission is granted, show a system notification
-            if (window.Notification && Notification.permission === 'granted') {
-                const notificationTitle = "新しい通知";
-                const notificationOptions = {
-                    body: newestUnread.message,
-                    icon: '/icon-192x192.png', // Optional: Add an icon
-                };
-                new Notification(notificationTitle, notificationOptions);
-            }
         }
       }
       

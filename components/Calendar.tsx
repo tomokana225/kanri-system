@@ -86,6 +86,13 @@ const Calendar: React.FC<CalendarProps> = ({ onDateSelect, selectedDate, availab
             dayClasses += 'bg-green-50 text-green-800 hover:bg-green-100 border border-green-200';
         } else if (teacherStatus === 'fully-booked') {
             dayClasses += 'bg-gray-100 text-gray-500 hover:bg-gray-200';
+        } else if (markedDates) {
+            // Dashboard Mode (Student Portal) logic
+            if (isMarked) {
+                dayClasses += 'text-blue-600 bg-blue-50 hover:bg-blue-100 font-bold';
+            } else {
+                dayClasses += 'text-gray-400 hover:bg-gray-100';
+            }
         } else { // Default clickable style
             dayClasses += 'hover:bg-blue-100 text-blue-600';
         }
