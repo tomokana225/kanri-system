@@ -26,6 +26,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
   const [error, setError] = useState('');
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({ isUploading: false, message: '', progress: 0 });
   
+  // Long press state
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +153,31 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
       }
   };
 
+  // Touch handling for long press (mobile deletion)
+  const handleTouchStart = (msg: Message) => {
+    const timer = setTimeout(() => {
+        // Simple haptic feedback if supported
+        if (navigator.vibrate) navigator.vibrate(50);
+        handleDeleteMessage(msg);
+    }, 600); // 600ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+    }
+  };
+
+  const handleTouchMove = () => {
+    // If user scrolls, cancel the long press
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+    }
+  };
+
   return (
     <Modal title={`${otherUser.name}とのチャット`} onClose={onClose}>
       <div className="flex flex-col h-[60vh] relative">
@@ -184,7 +212,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
                         <>
                             <button
                                 onClick={() => handleDeleteMessage(msg)}
-                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity p-1"
+                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity p-1 hidden sm:block"
                                 title="削除"
                             >
                                 <DeleteIcon className="w-4 h-4" />
@@ -195,9 +223,15 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
                             </div>
                         </>
                     )}
-                    <div className={`max-w-xs lg:max-w-md p-1 rounded-lg shadow ${isMe ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
+                    <div 
+                        className={`max-w-xs lg:max-w-md p-1 rounded-lg shadow ${isMe ? 'bg-blue-500 text-white cursor-pointer select-none' : 'bg-white text-gray-800'}`}
+                        onTouchStart={() => isMe && handleTouchStart(msg)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchMove}
+                        onContextMenu={(e) => { if(isMe) e.preventDefault(); }} // Optional: prevent default context menu on own messages for better UX
+                    >
                         {msg.type === 'image' && msg.imageUrl ? (
-                            <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer">
+                            <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="block" onClick={(e) => { if(isMe) e.preventDefault(); }}>
                                 <img src={msg.imageUrl} alt="添付画像" className="rounded-md max-w-full h-auto bg-gray-100" style={{ maxHeight: '200px' }} />
                             </a>
                         ) : msg.type === 'file' && msg.fileUrl ? (
