@@ -73,9 +73,10 @@ export interface Message {
     id: string;
     senderId: string;
     createdAt: Timestamp;
-    type: 'text' | 'image';
+    type: 'text' | 'image' | 'file';
     text?: string;
     imageUrl?: string;
+    fileUrl?: string;
     readBy: string[]; // Array of user IDs who have read the message
 }
 

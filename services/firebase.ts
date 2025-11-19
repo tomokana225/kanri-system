@@ -251,8 +251,29 @@ export const cancelBooking = async (bookingId: string, cancelledByUserId: string
         updateData.cancellationReason = reason;
     }
     await bookingRef.update(updateData);
+
+    // 3. Reset Availability Status
+    // Find the availability slot corresponding to this booking
+    try {
+        const availSnapshot = await db.collection('availabilities')
+            .where('teacherId', '==', booking.teacherId)
+            .where('startTime', '==', booking.startTime)
+            .get();
+
+        if (!availSnapshot.empty) {
+            // Assuming one slot per time for a teacher
+            const availDoc = availSnapshot.docs[0];
+            await availDoc.ref.update({
+                status: 'available',
+                studentId: firebase.firestore.FieldValue.delete()
+            });
+        }
+    } catch (e) {
+        console.error("Failed to reset availability status:", e);
+        // Continue even if resetting availability fails, as the booking is already cancelled
+    }
     
-    // 3. Send notification to the partner
+    // 4. Send notification to the partner
     let targetUserId = '';
     
     if (booking.studentId === cancelledByUserId) {
@@ -291,12 +312,21 @@ export const createBooking = async (newBooking: Omit<Booking, 'id'>, availabilit
         transaction.update(availabilityRef, { status: 'booked', studentId: newBooking.studentId });
     });
 
-    // Notify the teacher
     const startTimeStr = newBooking.startTime.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    // Notify the teacher
     await sendAppAndPushNotification(
         newBooking.teacherId,
         "新しい予約",
         `${newBooking.studentName}さんから予約が入りました: ${newBooking.courseTitle} (${startTimeStr})`,
+        { type: 'booking' }
+    );
+
+    // Notify the student
+    await sendAppAndPushNotification(
+        newBooking.studentId,
+        "予約完了",
+        `予約が完了しました: ${newBooking.courseTitle} (${startTimeStr})`,
         { type: 'booking' }
     );
 };
@@ -526,7 +556,15 @@ export const sendChatMessage = async (chatId: string, messageData: Partial<Messa
     // Send Notification to the receiver
     if (receiver.id) {
         const title = sender.name;
-        const body = messageData.type === 'image' ? '画像を送信しました' : (messageData.text || '新しいメッセージ');
+        
+        let body = '';
+        if (messageData.type === 'image') {
+            body = '📎 画像を送信しました';
+        } else if (messageData.type === 'file') {
+            body = '📎 ファイルを送信しました';
+        } else {
+            body = messageData.text || '新しいメッセージ';
+        }
         
         const link: Notification['link'] = {
             type: 'chat',

@@ -148,6 +148,16 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     }
   };
 
+  const confirmCancel = (booking: Booking) => {
+      setBookingToCancel(booking);
+      setIsCancelModalOpen(true);
+  };
+
+  const handleOpenChatFromBooking = (booking: Booking) => {
+      setChatPartner({ id: booking.studentId, name: booking.studentName, role: 'student' });
+      setIsChatModalOpen(true);
+  };
+
   const renderContent = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error) return <Alert message={error} type="error" />;
@@ -155,15 +165,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     switch(activeView) {
       case 'schedule':
         const upcomingBookings = bookings.filter(b => b.status === 'confirmed' && b.startTime.toDate() > new Date());
-        const handleOpenChatFromBooking = (booking: Booking) => {
-            setChatPartner({ id: booking.studentId, name: booking.studentName, role: 'student' });
-            setIsChatModalOpen(true);
-        };
-        const confirmCancel = (booking: Booking) => {
-            setBookingToCancel(booking);
-            setIsCancelModalOpen(true);
-        };
-
+        
         return (
           <div className="bg-white p-6 rounded-xl shadow-lg">
             <h1 className="text-3xl font-bold text-gray-800 mb-4">今後のスケジュール</h1>
@@ -226,7 +228,14 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                   </h3>
                    {slotsForSelectedDate.length > 0 ? (
                       <ul className="space-y-3 max-h-[450px] overflow-y-auto -mr-2 pr-2">
-                          {slotsForSelectedDate.map(slot => (
+                          {slotsForSelectedDate.map(slot => {
+                              // Find corresponding booking if the slot is booked
+                              const booking = bookings.find(b => 
+                                  b.status === 'confirmed' && 
+                                  b.startTime.toMillis() === slot.startTime.toMillis()
+                              );
+
+                              return (
                               <li key={slot.id} className="p-3 flex justify-between items-center bg-gray-50 rounded-lg">
                                   <p className="font-mono text-lg text-gray-900">{slot.startTime.toDate().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'})}</p>
                                   {slot.status === 'available' ? (
@@ -238,10 +247,18 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                                       <div className="text-right">
                                           <span className="text-sm font-medium text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">予約済み</span>
                                           <p className="text-sm text-gray-600 mt-1">{studentNameMap.get(slot.studentId!) || '不明な学生'}</p>
+                                          {booking && (
+                                              <button 
+                                                  onClick={() => confirmCancel(booking)}
+                                                  className="mt-2 text-xs text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                              >
+                                                  キャンセル
+                                              </button>
+                                          )}
                                       </div>
                                   )}
                               </li>
-                          ))}
+                          )})}
                       </ul>
                   ) : (
                       <div className="flex items-center justify-center h-full min-h-[200px]">
