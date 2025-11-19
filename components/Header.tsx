@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { User, Notification } from '../types';
-import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon, BellSlashIcon, ShareIcon, PlusSquareIcon, CloseIcon } from './icons';
+import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon, BellSlashIcon, ShareIcon, PlusSquareIcon, CloseIcon, SettingsIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
+import AppIconSettingsModal from './AppIconSettingsModal';
 import { subscribeToUserNotifications, markAllNotificationsAsRead, requestNotificationPermissionAndSaveToken } from '../services/firebase';
-// Fix: Import firebase to use firebase.firestore.Timestamp for mock data.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 
@@ -38,6 +38,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
     window.Notification ? Notification.permission : 'default'
   );
   const [showIosPrompt, setShowIosPrompt] = useState(false);
+  const [showIconSettings, setShowIconSettings] = useState(false);
   
   const previousNotifications = useRef<Notification[]>([]);
   const isFirstLoad = useRef(true);
@@ -58,7 +59,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   useEffect(() => {
     const isDevMode = user.id.startsWith('dev-');
     if (isDevMode) {
-        // Mock notifications for dev mode
         const mockNotifs = [
             { id: 'n1', userId: user.id, message: 'モック通知: クラスのリマインダー', read: false, createdAt: new Date(), link: { type: 'booking' } },
             { id: 'n2', userId: user.id, message: 'モック通知: 新しいメッセージ', read: true, createdAt: new Date(Date.now() - 3600 * 1000), link: { type: 'chat', payload: { partnerId: 'dev-teacher-1', partnerName: '田中先生' } } },
@@ -75,13 +75,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
           return;
       }
 
-      // Logic to detect and show a toast for new unread notifications
       if (previousNotifications.current) {
         const previousIds = new Set(previousNotifications.current.map(n => n.id));
-        // Find the newest notification that is unread and was not present before
         const newestUnread = newNotifications
             .filter(n => !n.read && !previousIds.has(n.id))
-            .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())[0]; // Get the most recent one
+            .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())[0];
 
         if (newestUnread) {
             onShowToast(newestUnread.message);
@@ -89,7 +87,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
       }
       
       setNotifications(newNotifications);
-      previousNotifications.current = newNotifications; // Update the ref for the next comparison
+      previousNotifications.current = newNotifications;
     });
     return () => unsubscribe();
   }, [user.id, onShowToast]);
@@ -102,7 +100,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   };
 
   const handleNotificationSettingsClick = async () => {
-    // Refresh status every time the button is clicked
     const currentPermission = window.Notification ? Notification.permission : 'default';
     setPermissionStatus(currentPermission);
 
@@ -120,7 +117,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
       case 'default':
         const result = await requestNotificationPermissionAndSaveToken(user.id);
         alert(result.message);
-        setPermissionStatus(Notification.permission); // Update status again after request
+        setPermissionStatus(Notification.permission);
         break;
       default:
         alert('通知の状態が不明です。');
@@ -143,6 +140,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
       localStorage.setItem('hasSeenIosInstallPrompt', 'true');
       setShowIosPrompt(false);
   };
+  
+  // Icon handler to update App.tsx state via localStorage event or callback
+  // For simplicity, we will rely on App.tsx's useEffect which we will modify to listen to custom events if needed,
+  // or we can pass a prop. Since Header is a child of App, we could lift state, but localStorage is cleaner for persistence.
+  const handleIconSave = (newIconUrl: string) => {
+      localStorage.setItem('app_icon_url', newIconUrl);
+      // Dispatch a custom event to notify App.tsx
+      window.dispatchEvent(new Event('app-icon-changed'));
+  };
 
   return (
     <>
@@ -158,6 +164,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         <div className="flex items-center space-x-2 sm:space-x-4">
           <span className="text-gray-600 hidden sm:block">ようこそ、{user.name}さん</span>
           
+          <button 
+            onClick={() => setShowIconSettings(true)}
+            className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700"
+            title="アプリアイコン設定"
+          >
+            <SettingsIcon />
+          </button>
+
           <button 
             onClick={handleNotificationSettingsClick}
             title={getPermissionButtonTitle()}
@@ -187,6 +201,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         </div>
       </header>
       {showIosPrompt && <IosInstallPrompt onClose={handleCloseIosPrompt} />}
+      {showIconSettings && (
+          <AppIconSettingsModal 
+            onClose={() => setShowIconSettings(false)} 
+            currentIcon={localStorage.getItem('app_icon_url')}
+            onSave={handleIconSave}
+          />
+      )}
     </>
   );
 };

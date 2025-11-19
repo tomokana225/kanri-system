@@ -8,7 +8,6 @@ import TeacherPortal from './components/TeacherPortal';
 import AdminPortal from './components/AdminPortal';
 import Spinner from './components/Spinner';
 import PushNotificationManager from './components/PushNotificationManager';
-// Fix: Use Firebase compat imports to resolve module resolution errors.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import { ChevronDownIcon } from './components/icons';
@@ -24,6 +23,46 @@ const App: React.FC = () => {
   const [navigationRequest, setNavigationRequest] = useState<Notification['link'] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Handle App Icon logic
+  useEffect(() => {
+    const applyAppIcon = () => {
+        const savedIconUrl = localStorage.getItem('app_icon_url');
+        const iconUrl = savedIconUrl || '/icon-192x192.png'; // Default fallback
+        
+        // 1. Update Apple Touch Icon (for iOS Add to Home Screen)
+        let appleIconLink = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+        if (!appleIconLink) {
+            appleIconLink = document.createElement('link');
+            appleIconLink.rel = 'apple-touch-icon';
+            document.head.appendChild(appleIconLink);
+        }
+        appleIconLink.href = iconUrl;
+
+        // 2. Update Manifest (for Android Add to Home Screen)
+        // We use a Cloudflare Function to generate a dynamic manifest JSON
+        let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+        if (!manifestLink) {
+            manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            document.head.appendChild(manifestLink);
+        }
+        
+        // Point to the dynamic manifest API, passing the icon URL as a parameter
+        // Use timestamp to prevent caching of the manifest file itself when changed
+        if (savedIconUrl) {
+            manifestLink.href = `/api/manifest?icon=${encodeURIComponent(iconUrl)}&t=${Date.now()}`;
+        } else {
+            manifestLink.href = `/manifest.json`; // Static fallback
+        }
+    };
+
+    applyAppIcon();
+
+    // Listen for changes from settings modal
+    window.addEventListener('app-icon-changed', applyAppIcon);
+    return () => window.removeEventListener('app-icon-changed', applyAppIcon);
+  }, []);
+
   const handleDevModeLogin = (role: UserRole) => {
     console.warn(`[開発モード] ${role}としてログインしています。表示されているデータはモックです。`);
     setUser({
@@ -32,7 +71,7 @@ const App: React.FC = () => {
         email: `${role}@example.com`,
         role: role as UserRole,
     });
-    setInitializationError(null); // Clear error to render the portal
+    setInitializationError(null);
     setLoading(false);
   };
 
@@ -43,15 +82,12 @@ const App: React.FC = () => {
         const { auth } = await initializeFirebase();
         setAuthInstance(auth);
 
-        // --- DEV MODE (URL PARAM) ---
-        // Keep this as a shortcut for developers
         const urlParams = new URLSearchParams(window.location.search);
         const devRole = urlParams.get('dev_role');
         if (devRole && ['student', 'teacher', 'admin'].includes(devRole)) {
             handleDevModeLogin(devRole as UserRole);
-            return; // Skip real auth listener setup
+            return;
         }
-        // --- END DEV MODE ---
 
         const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: firebase.User | null) => {
           if (firebaseUser) {
@@ -60,7 +96,6 @@ const App: React.FC = () => {
               setUser(userProfile);
             } else {
               console.log("Firestoreにユーザープロファイルが見つかりません。新規作成します:", firebaseUser.uid);
-              // An admin user is identified if their email contains 'admin@'
               const isAdmin = firebaseUser.email?.includes('admin@') ?? false;
               const role = isAdmin ? 'admin' : 'student';
 
