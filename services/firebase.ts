@@ -350,6 +350,28 @@ interface PushNotificationApiResponse {
   };
 }
 
+// Internal helper to call the backend API
+const callPushNotificationApi = async (userId: string, title: string, body: string) => {
+    try {
+        const response = await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, title, body }),
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json() as { error?: string };
+            console.warn('Push notification API warning:', errorData.error || response.statusText);
+            // We return the response to let the caller decide if they want to throw
+            return response; 
+        }
+        return response;
+    } catch (error) {
+        console.error('Failed to send push notification request:', error);
+        throw error;
+    }
+};
+
 export const sendTestNotification = async (userId: string, senderName: string, customMessage?: string): Promise<void> => {
     await initializeFirebase();
 
@@ -367,33 +389,19 @@ export const sendTestNotification = async (userId: string, senderName: string, c
     await db.collection('notifications').add(notificationForDb);
 
     // 2. 実際のプッシュ通知を送信するためにバックエンド関数を呼び出します
-    try {
-        const response = await fetch('/api/send-push-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, title, body }),
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json() as { error?: string };
-            throw new Error(errorData.error || 'プッシュ通知APIの呼び出しに失敗しました');
-        }
-
+    const response = await callPushNotificationApi(userId, title, body);
+    
+    if (response && !response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'プッシュ通知APIの呼び出しに失敗しました');
+    } else if (response) {
         const result = await response.json() as PushNotificationApiResponse;
-        if (result.success && result.fcmResult && result.fcmResult.failure > 0) {
-             console.warn(`[プッシュ通知] 一部のデバイスへの送信に失敗しました。成功: ${result.fcmResult.success}, 失敗: ${result.fcmResult.failure}`);
-        } else if (!result.success) {
-            throw new Error(result.error || 'プッシュ通知の送信に失敗しました');
+        if (!result.success) {
+             throw new Error(result.error || 'プッシュ通知の送信に失敗しました');
         }
-
-        console.log('プッシュ通知がAPI経由で正常に送信されました。');
-
-    } catch (error) {
-        console.error("プッシュ通知の送信に失敗しました:", error);
-        // 呼び出し元のコンポーネント（AdminPortal）がエラーをキャッチしてアラートを表示できるように、エラーをスローします。
-        // DBへの書き込みはすでに行われているため、ユーザーはアプリ内で通知を見ることができます。
-        // ここでのエラーは、特にプッシュ部分に関するものです。
-        throw error;
+        if (result.fcmResult && result.fcmResult.failure > 0 && result.fcmResult.success === 0) {
+             throw new Error('登録されたすべてのデバイスへの送信に失敗しました。トークンが無効になっている可能性があります。');
+        }
     }
 };
 
@@ -432,6 +440,18 @@ export const sendChatMessage = async (chatId: string, messageData: Partial<Messa
     batch.set(messageRef, finalMessageData);
     batch.set(chatRef, { participants: [sender.id, receiver.id] }, { merge: true });
     await batch.commit();
+
+    // Send Push Notification to the receiver
+    if (receiver.id) {
+        const title = sender.name;
+        const body = messageData.type === 'image' ? '画像を送信しました' : (messageData.text || '新しいメッセージ');
+        
+        // We call the API but do not await its result or let it block the chat UI.
+        // Chat functionality should remain responsive even if notifications fail.
+        callPushNotificationApi(receiver.id, title, body).catch(err => {
+            console.error("Failed to trigger chat push notification:", err);
+        });
+    }
 };
 
 export const uploadImageToStorage = async (file: File, chatId: string): Promise<string> => {
