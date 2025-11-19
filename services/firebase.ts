@@ -419,15 +419,6 @@ export const initializeMessagingListener = (onMessageReceived: (payload: any) =>
     return () => {}; // Return a no-op unsubscribe function if messaging is not supported
 };
 
-interface PushNotificationApiResponse {
-  success: boolean;
-  error?: string;
-  fcmResult?: {
-    success: number;
-    failure: number;
-  };
-}
-
 // Internal helper to call the backend API
 const callPushNotificationApi = async (userId: string, title: string, body: string) => {
     try {
@@ -451,7 +442,7 @@ const callPushNotificationApi = async (userId: string, title: string, body: stri
 };
 
 // Helper function to save in-app notification AND send push notification
-const sendAppAndPushNotification = async (userId: string, title: string, message: string, link?: Notification['link']) => {
+export const sendAppAndPushNotification = async (userId: string, title: string, message: string, link?: Notification['link']) => {
   await initializeFirebase();
   
   // 1. Create In-App Notification
@@ -484,7 +475,7 @@ export const sendTestNotification = async (userId: string, senderName: string, c
     const body = customMessage || `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`;
 
     // Use the common helper
-    await sendAppAndPushNotification(userId, title, body, null);
+    await sendAppAndPushNotification(userId, title, body, undefined);
 };
 
 

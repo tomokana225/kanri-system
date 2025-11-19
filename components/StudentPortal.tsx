@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Course, Booking, Notification } from '../types';
 import { getCoursesForStudent, getBookingsForUser, cancelBooking } from '../services/firebase';
 import Spinner from './Spinner';
@@ -8,7 +8,8 @@ import FeedbackModal from './FeedbackModal';
 import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
-import { ChatIcon, CalendarIcon, ClockIcon, AddIcon } from './icons';
+import Calendar from './Calendar';
+import { ChatIcon, CalendarIcon, ClockIcon, AddIcon, CheckIcon } from './icons';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 
@@ -28,6 +29,9 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeView, setActiveView] = useState<StudentView>('bookings');
+  
+  // Calendar state
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Modal states
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -70,6 +74,8 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
         { id: 'b2', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id-2', courseId: 'c2', courseTitle: 'ビジネス英語', startTime: mockTimestamp(48), endTime: mockTimestamp(49), status: 'confirmed' },
         { id: 'b3', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id', courseId: 'c1', courseTitle: '英会話初級', startTime: mockPastTimestamp(24), endTime: mockPastTimestamp(23), status: 'completed', feedback: { rating: 5, comment: 'とても分かりやすかったです。'} },
         { id: 'b4', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id-2', courseId: 'c2', courseTitle: 'ビジネス英語', startTime: mockPastTimestamp(72), endTime: mockPastTimestamp(71), status: 'cancelled' },
+        // Add one for today for demo
+        { id: 'b5', studentId: user.id, studentName: user.name, teacherId: 'dev-teacher-id', courseId: 'c1', courseTitle: '英会話初級 (今日)', startTime: firebase.firestore.Timestamp.fromDate(new Date(new Date().setHours(15,0,0,0))), endTime: firebase.firestore.Timestamp.fromDate(new Date(new Date().setHours(16,0,0,0))), status: 'confirmed' },
       ];
       setCourses(mockCourses);
       setBookings(mockBookings);
@@ -130,12 +136,19 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     </button>
   );
 
-  const renderBookings = () => {
-    const upcomingBookings = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && b.startTime.toDate() > new Date());
-    const pastBookings = bookings.filter(b => b.status === 'completed' || b.status === 'cancelled' || (b.status === 'confirmed' && b.startTime.toDate() <= new Date()));
+  const markedDates = useMemo(() => {
+      return bookings.map(b => b.startTime.toDate());
+  }, [bookings]);
 
+  const filteredBookings = useMemo(() => {
+      return bookings.filter(b => b.startTime.toDate().toDateString() === selectedDate.toDateString())
+                     .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+  }, [bookings, selectedDate]);
+
+
+  const renderBookings = () => {
     const canCancel = (booking: Booking) => {
-      if (booking.status === 'cancelled') return false;
+      if (booking.status === 'cancelled' || booking.status === 'completed') return false;
       if (!booking.cancellationDeadline) {
         const now = new Date();
         const classTime = booking.startTime.toDate();
@@ -147,18 +160,22 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     
     const handleOpenChatFromBooking = (booking: Booking) => {
       const course = courses.find(c => c.id === booking.courseId);
-      if (course) {
-          setChatPartner({ id: course.teacherId, name: course.teacherName || '不明な教師', role: 'teacher' });
+      // Even if course is not found (deleted?), we can try to chat with teacherId from booking
+      const teacherId = course ? course.teacherId : booking.teacherId;
+      const teacherName = course ? course.teacherName : '担当教師';
+      
+      if (teacherId) {
+          setChatPartner({ id: teacherId, name: teacherName || '不明な教師', role: 'teacher' });
           setIsChatModalOpen(true);
       } else {
-          setError('このコースの教師情報が見つかりませんでした。');
+          setError('教師情報が見つかりませんでした。');
       }
     };
 
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">予約管理</h1>
+                <h1 className="text-3xl font-bold text-gray-800">マイポータル</h1>
                 <button
                     onClick={() => setIsBookingModalOpen(true)}
                     className="flex items-center justify-center gap-2 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
@@ -169,85 +186,107 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
             </div>
             {error && <Alert message={error} type="error" />}
 
-            <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">今後の予約</h2>
-                {upcomingBookings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {upcomingBookings.map(booking => (
-                    <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform transform hover:-translate-y-1">
-                        <div className="p-5">
-                        <p className="font-bold text-lg text-blue-800">{booking.courseTitle}</p>
-                        <p className="text-sm text-gray-600 mt-2">教師: {courses.find(c => c.id === booking.courseId)?.teacherName || 'N/A'}</p>
-                        <div className="flex items-center text-sm text-gray-600 mt-2">
-                            <CalendarIcon className="w-4 h-4 mr-2" />
-                            <span>{booking.startTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600 mt-1">
-                            <ClockIcon className="w-4 h-4 mr-2" />
-                            <span>{booking.startTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                        </div>
-                        <div className="p-4 bg-gray-50 flex gap-2">
-                            <button onClick={() => handleOpenChatFromBooking(booking)} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 transition-colors">
-                            <ChatIcon /> <span>チャット</span>
-                            </button>
-                            {canCancel(booking) ? (
-                            <button
-                                onClick={() => handleCancelBooking(booking.id)}
-                                className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-                            >
-                                キャンセル
-                            </button>
-                        ) : (
-                            <button className="flex-1 px-3 py-2 text-sm font-medium text-white bg-gray-400 rounded-md cursor-not-allowed" disabled title="キャンセル期限を過ぎています">
-                                キャンセル不可
-                            </button>
-                        )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Calendar Section */}
+                <div className="lg:col-span-1">
+                    <div className="sticky top-4">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <CalendarIcon className="text-blue-500" />
+                            カレンダー
+                        </h2>
+                        <Calendar 
+                            onDateSelect={setSelectedDate} 
+                            selectedDate={selectedDate} 
+                            markedDates={markedDates}
+                            enablePastDates={true}
+                        />
+                        <div className="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800">
+                            <p>• 青いドットがある日は予約が入っています。</p>
+                            <p>• 日付をタップして詳細を確認できます。</p>
                         </div>
                     </div>
-                    ))}
                 </div>
-                ) : (
-                <p className="text-gray-500 bg-white p-6 rounded-lg shadow-sm">今後の予約はありません。</p>
-                )}
-            </div>
 
-            <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">予約履歴</h2>
-                {pastBookings.length > 0 ? (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <ul className="divide-y divide-gray-200">
-                    {pastBookings.map(booking => (
-                    <li key={booking.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
-                        <div>
-                            <p className={`font-semibold ${booking.status === 'cancelled' ? 'text-gray-400 line-through' : ''}`}>{booking.courseTitle}</p>
-                            <p className="text-sm text-gray-500">{booking.startTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}</p>
+                {/* Booking List Section */}
+                <div className="lg:col-span-2">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        {selectedDate.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })} の予定
+                    </h2>
+                    
+                    {filteredBookings.length > 0 ? (
+                        <div className="space-y-4">
+                            {filteredBookings.map(booking => (
+                                <div key={booking.id} className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all hover:shadow-md ${booking.status === 'cancelled' ? 'opacity-75' : ''}`}>
+                                    <div className="p-5">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className={`font-bold text-lg ${booking.status === 'cancelled' ? 'text-gray-500 line-through' : 'text-blue-800'}`}>
+                                                    {booking.courseTitle}
+                                                </h3>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    教師: {courses.find(c => c.id === booking.courseId)?.teacherName || '担当教師'}
+                                                </p>
+                                            </div>
+                                            <span className={`px-3 py-1 text-xs font-semibold rounded-full 
+                                                ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                                                  booking.status === 'completed' ? 'bg-gray-100 text-gray-800' : 
+                                                  booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                {booking.status === 'confirmed' ? '予約済み' : 
+                                                 booking.status === 'completed' ? '完了' : 
+                                                 booking.status === 'cancelled' ? 'キャンセル' : booking.status}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center text-gray-700 mt-3 font-medium">
+                                            <ClockIcon className="w-5 h-5 mr-2 text-gray-400" />
+                                            <span>
+                                                {booking.startTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - {booking.endTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="px-5 py-3 bg-gray-50 border-t flex flex-wrap gap-3">
+                                        {/* Actions */}
+                                        <button 
+                                            onClick={() => handleOpenChatFromBooking(booking)} 
+                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            <ChatIcon className="w-4 h-4" /> チャット
+                                        </button>
+                                        
+                                        {booking.status === 'completed' && (
+                                            <button 
+                                                onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} 
+                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                                            >
+                                                {booking.feedback ? 'フィードバック確認' : 'フィードバック送信'}
+                                            </button>
+                                        )}
+
+                                        {canCancel(booking) && (
+                                            <button
+                                                onClick={() => handleCancelBooking(booking.id)}
+                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+                                            >
+                                                キャンセル
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex items-center gap-4">
-                        {booking.status !== 'cancelled' && (
-                            <>
-                            <button onClick={() => handleOpenChatFromBooking(booking)} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                                <ChatIcon /> <span>チャット履歴</span>
+                    ) : (
+                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                            <p className="text-gray-500">この日の予約はありません。</p>
+                            <button 
+                                onClick={() => setIsBookingModalOpen(true)}
+                                className="mt-4 text-blue-600 font-medium hover:underline"
+                            >
+                                新しいクラスを予約する
                             </button>
-                            {booking.feedback ? (
-                            <button onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} className="px-3 py-1.5 text-sm text-green-700 bg-green-100 rounded-md hover:bg-green-200">
-                                フィードバックあり
-                            </button>
-                            ) : (
-                            <button onClick={() => { setSelectedBooking(booking); setIsFeedbackModalOpen(true); }} className="px-3 py-1.5 text-sm text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200">
-                                フィードバックを見る
-                            </button>
-                            )}
-                            </>
-                        )}
                         </div>
-                    </li>
-                    ))}
-                    </ul>
+                    )}
                 </div>
-                ) : (
-                <p className="text-gray-500 bg-white p-6 rounded-lg shadow-sm">完了したクラスはありません。</p>
-                )}
             </div>
         </div>
     );

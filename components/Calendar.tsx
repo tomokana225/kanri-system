@@ -6,15 +6,21 @@ interface CalendarProps {
   selectedDate: Date | null;
   availableDates?: Date[]; // For student booking
   availabilityData?: Availability[]; // For teacher portal view
+  markedDates?: Date[]; // For dashboard view to show events
+  enablePastDates?: boolean; // To allow selecting past dates (e.g. for history)
 }
 
-const Calendar: React.FC<CalendarProps> = ({ onDateSelect, selectedDate, availableDates, availabilityData }) => {
+const Calendar: React.FC<CalendarProps> = ({ onDateSelect, selectedDate, availableDates, availabilityData, markedDates, enablePastDates = false }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const availableDateStrings = useMemo(() => {
     return availableDates?.map(d => d.toDateString());
   }, [availableDates]);
   
+  const markedDateStrings = useMemo(() => {
+    return markedDates?.map(d => d.toDateString()) || [];
+  }, [markedDates]);
+
   const availabilityStatusMap = useMemo(() => {
     if (!availabilityData) return new Map();
     const map = new Map<string, 'has-available' | 'fully-booked'>();
@@ -47,15 +53,32 @@ const Calendar: React.FC<CalendarProps> = ({ onDateSelect, selectedDate, availab
     const isSelected = selectedDate?.toDateString() === dayDateString;
     const isPast = dayDate < new Date(new Date().toDateString());
     
-    // Student booking mode
-    const isAvailableForStudent = !isPast && (availableDates === undefined || (availableDateStrings && availableDateStrings.includes(dayDateString)));
+    const isMarked = markedDateStrings.includes(dayDateString);
     
-    // Teacher view mode
+    // Check clickability based on usage mode
+    let isClickable = true;
+    
+    if (!enablePastDates && isPast) {
+        isClickable = false;
+        // Exception: if it's teacher view, allow managing past? usually no, but let's keep existing behavior
+        if (availabilityData) isClickable = false; 
+    }
+    
+    // If in student booking mode (availableDates provided), strict check
+    if (availableDates !== undefined) {
+        isClickable = !isPast && (availableDateStrings?.includes(dayDateString) || false);
+    }
+    
+    // If enablePastDates is explicitly true, override past check
+    if (enablePastDates) {
+        isClickable = true;
+    }
+
+
     const teacherStatus = availabilityData ? availabilityStatusMap.get(dayDateString) : undefined;
     
-    const isClickable = availabilityData ? !isPast : isAvailableForStudent;
-
-    let dayClasses = `w-10 h-10 flex items-center justify-center rounded-full transition-colors font-semibold `;
+    let dayClasses = `relative w-10 h-10 flex items-center justify-center rounded-full transition-colors font-semibold `;
+    
     if (!isClickable) {
         dayClasses += 'text-gray-300 cursor-not-allowed bg-gray-50';
     } else {
@@ -78,6 +101,9 @@ const Calendar: React.FC<CalendarProps> = ({ onDateSelect, selectedDate, availab
           className={dayClasses}
         >
           {i}
+          {isMarked && (
+             <span className={`absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`}></span>
+          )}
         </button>
       </div>
     );
