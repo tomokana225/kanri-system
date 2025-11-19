@@ -107,7 +107,8 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     if (window.confirm('この予約を本当にキャンセルしますか？')) {
       try {
         // Use cancelBooking instead of updateBookingStatus to trigger notifications
-        await cancelBooking(bookingId, user.id, user.name);
+        // Pass undefined for reason as student cancellation doesn't use modal yet
+        await cancelBooking(bookingId, user.id, user.name, undefined);
         alert('予約がキャンセルされました。');
         fetchData(); // Refresh data
       } catch (e: any) {
@@ -243,6 +244,12 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
                                                 {booking.startTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - {booking.endTime.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
+
+                                        {booking.status === 'cancelled' && booking.cancellationReason && (
+                                            <div className="mt-3 p-3 bg-red-50 text-red-800 text-sm rounded-md">
+                                                <span className="font-bold">キャンセル理由:</span> {booking.cancellationReason}
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     <div className="px-5 py-3 bg-gray-50 border-t flex flex-wrap gap-3">

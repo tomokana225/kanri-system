@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Booking, Availability, Notification } from '../types';
-import { getBookingsForUser, getAvailabilitiesForTeacher, deleteAvailability } from '../services/firebase';
+import { getBookingsForUser, getAvailabilitiesForTeacher, deleteAvailability, cancelBooking } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import TeacherAvailabilityModal from './TeacherAvailabilityModal';
@@ -9,6 +9,7 @@ import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
 import Calendar from './Calendar'; // Import Calendar
+import CancelBookingModal from './CancelBookingModal';
 import { DeleteIcon, AddIcon, ChatIcon, CalendarIcon, ClockIcon, CourseIcon } from './icons';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
@@ -35,9 +36,11 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [chatPartner, setChatPartner] = useState<Partial<User> | null>(null);
+  const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
 
   useEffect(() => {
     if (navigationRequest) {
@@ -132,6 +135,19 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
     return map;
   }, [bookings]);
 
+  const handleCancelBooking = async (reason: string) => {
+    if (!bookingToCancel) return;
+    try {
+      await cancelBooking(bookingToCancel.id, user.id, user.name, reason);
+      fetchData();
+      setIsCancelModalOpen(false);
+      setBookingToCancel(null);
+    } catch (e: any) {
+      setError('予約のキャンセルに失敗しました。');
+      console.error(e);
+    }
+  };
+
   const renderContent = () => {
     if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     if (error) return <Alert message={error} type="error" />;
@@ -143,21 +159,35 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
             setChatPartner({ id: booking.studentId, name: booking.studentName, role: 'student' });
             setIsChatModalOpen(true);
         };
+        const confirmCancel = (booking: Booking) => {
+            setBookingToCancel(booking);
+            setIsCancelModalOpen(true);
+        };
+
         return (
           <div className="bg-white p-6 rounded-xl shadow-lg">
             <h1 className="text-3xl font-bold text-gray-800 mb-4">今後のスケジュール</h1>
             {upcomingBookings.length > 0 ? (
               <ul className="divide-y divide-gray-200">
                 {upcomingBookings.map(b => (
-                  <li key={b.id} className="py-4 flex justify-between items-center">
-                    <div>
+                  <li key={b.id} className="py-4 flex justify-between items-center flex-wrap gap-2">
+                    <div className="flex-1 min-w-0">
                       <p className="font-semibold text-blue-800">{b.courseTitle}</p>
                       <p className="text-sm text-gray-600">生徒: {b.studentName}</p>
                       <p className="text-sm text-gray-500 mt-1">{b.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
-                    <button onClick={() => handleOpenChatFromBooking(b)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                        <ChatIcon />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleOpenChatFromBooking(b)} className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700 transition-colors" title="チャット">
+                          <ChatIcon />
+                      </button>
+                      <button 
+                        onClick={() => confirmCancel(b)} 
+                        className="px-3 py-1 text-xs font-medium text-red-600 border border-red-200 rounded-full hover:bg-red-50 transition-colors"
+                        title="予約をキャンセル"
+                      >
+                        キャンセル
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -269,6 +299,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
       {isAvailabilityModalOpen && <TeacherAvailabilityModal user={user} onClose={() => setIsAvailabilityModalOpen(false)} onSaveSuccess={fetchData} />}
       {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="teacher" currentUser={user} onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData} />}
       {isChatModalOpen && chatPartner && <ChatModal currentUser={user} otherUser={chatPartner} onClose={() => setIsChatModalOpen(false)} />}
+      {isCancelModalOpen && bookingToCancel && <CancelBookingModal booking={bookingToCancel} onClose={() => setIsCancelModalOpen(false)} onConfirm={handleCancelBooking} />}
     </div>
   );
 };

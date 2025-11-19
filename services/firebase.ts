@@ -232,7 +232,7 @@ export const updateBookingStatus = async (bookingId: string, status: Booking['st
 };
 
 // High-level cancellation with notification
-export const cancelBooking = async (bookingId: string, cancelledByUserId: string, cancelledByUserName: string): Promise<void> => {
+export const cancelBooking = async (bookingId: string, cancelledByUserId: string, cancelledByUserName: string, reason?: string): Promise<void> => {
     await initializeFirebase();
     
     // 1. Get booking details to identify the partner
@@ -245,8 +245,12 @@ export const cancelBooking = async (bookingId: string, cancelledByUserId: string
     
     const booking = docToObject<Booking>(bookingDoc);
     
-    // 2. Update status
-    await bookingRef.update({ status: 'cancelled' });
+    // 2. Update status and reason
+    const updateData: any = { status: 'cancelled' };
+    if (reason) {
+        updateData.cancellationReason = reason;
+    }
+    await bookingRef.update(updateData);
     
     // 3. Send notification to the partner
     let targetUserId = '';
@@ -259,10 +263,15 @@ export const cancelBooking = async (bookingId: string, cancelledByUserId: string
     
     if (targetUserId) {
         const startTimeStr = booking.startTime.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        let messageBody = `${cancelledByUserName}さんが予約をキャンセルしました: ${booking.courseTitle} (${startTimeStr})`;
+        if (reason) {
+            messageBody += `\n理由: ${reason}`;
+        }
+
         await sendAppAndPushNotification(
             targetUserId,
             "予約キャンセル",
-            `${cancelledByUserName}さんが予約をキャンセルしました: ${booking.courseTitle} (${startTimeStr})`,
+            messageBody,
             { type: 'booking' }
         );
     }

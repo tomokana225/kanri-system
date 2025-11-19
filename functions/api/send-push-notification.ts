@@ -156,10 +156,13 @@ export const onRequestPost: (context: { request: Request, env: Env }) => Promise
             return new Response(JSON.stringify({ success: false, error: 'ユーザーはプッシュ通知用のデバイスを登録していません。' }), { status: 404 });
         }
         
+        // Deduplicate tokens to prevent double notifications
+        const uniqueTokens = Array.from(new Set(tokens));
+
         const accessToken = await getAccessToken(env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL, env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY);
         const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`;
         
-        const sendPromises = tokens.map(token => {
+        const sendPromises = uniqueTokens.map(token => {
             const fcmPayload = {
                 message: {
                     token: token,

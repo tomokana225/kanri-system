@@ -43,6 +43,7 @@ export interface Booking {
   endTime: Timestamp;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   cancellationDeadline?: Timestamp;
+  cancellationReason?: string; // Reason for cancellation
   reminderSent?: boolean;
   feedback?: {
     rating: number;

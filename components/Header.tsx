@@ -40,6 +40,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   const [showIosPrompt, setShowIosPrompt] = useState(false);
   
   const previousNotifications = useRef<Notification[]>([]);
+  const isFirstLoad = useRef(true);
   
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -67,8 +68,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
     }
 
     const unsubscribe = subscribeToUserNotifications(user.id, (newNotifications) => {
+      if (isFirstLoad.current) {
+          isFirstLoad.current = false;
+          setNotifications(newNotifications);
+          previousNotifications.current = newNotifications;
+          return;
+      }
+
       // Logic to detect and show a toast for new unread notifications
-      if (previousNotifications.current && previousNotifications.current.length > 0) {
+      if (previousNotifications.current) {
         const previousIds = new Set(previousNotifications.current.map(n => n.id));
         // Find the newest notification that is unread and was not present before
         const newestUnread = newNotifications
