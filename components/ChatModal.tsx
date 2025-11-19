@@ -99,9 +99,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
 
     const file = files[0];
     
-    // Optional: Check file size (e.g., max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-        alert('ファイルサイズが大きすぎます（最大10MB）。');
+    // Increase limit to 30MB to handle high-res mobile photos (which will be compressed)
+    if (file.size > 30 * 1024 * 1024) {
+        alert('ファイルサイズが大きすぎます（最大30MB）。');
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
     }
@@ -110,6 +110,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     try {
         const publicUrl = await uploadFileToSupabase(file);
         
+        // Determine type based on the original file type, but check result
         const isImage = file.type.startsWith('image/');
         const messageData: Partial<Message> = isImage 
             ? { type: 'image', imageUrl: publicUrl }
