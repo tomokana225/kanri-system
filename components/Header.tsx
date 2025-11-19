@@ -164,13 +164,15 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         <div className="flex items-center space-x-2 sm:space-x-4">
           <span className="text-gray-600 hidden sm:block">ようこそ、{user.name}さん</span>
           
-          <button 
-            onClick={() => setShowIconSettings(true)}
-            className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700"
-            title="アプリアイコン設定"
-          >
-            <SettingsIcon />
-          </button>
+          {(user.role === 'admin' || user.role === 'teacher') && (
+            <button 
+              onClick={() => setShowIconSettings(true)}
+              className="p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-700"
+              title="アプリアイコン設定"
+            >
+              <SettingsIcon />
+            </button>
+          )}
 
           <button 
             onClick={handleNotificationSettingsClick}
