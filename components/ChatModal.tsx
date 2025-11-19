@@ -27,7 +27,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({ isUploading: false, message: '', progress: 0 });
   
   // Long press state
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

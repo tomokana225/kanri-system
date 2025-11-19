@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
 import { uploadFileToSupabase } from '../services/supabase';
 import Spinner from './Spinner';
-import { CheckIcon } from './icons';
 
 interface AppIconSettingsModalProps {
   onClose: () => void;
@@ -21,8 +20,6 @@ const AppIconSettingsModal: React.FC<AppIconSettingsModalProps> = ({ onClose, cu
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentIcon);
   const [loading, setLoading] = useState(false);
   
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   // Generate icon from preset
   const generateIconBlob = async (): Promise<Blob | null> => {
     const canvas = document.createElement('canvas');
