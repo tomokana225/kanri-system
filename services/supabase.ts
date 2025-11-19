@@ -153,3 +153,29 @@ export const uploadFileToSupabase = async (
 
     return publicUrl;
 };
+
+export const deleteFileFromSupabase = async (publicUrl: string): Promise<void> => {
+    const client = await getSupabase();
+    const bucketName = 'chat-files';
+
+    // URLからファイルパスを抽出する
+    // 例: https://.../storage/v1/object/public/chat-files/TIMESTAMP_FILENAME
+    // バケット名直後のパスを取得する必要がある
+    const urlParts = publicUrl.split(`/${bucketName}/`);
+    if (urlParts.length < 2) {
+        console.warn('Invalid Supabase URL format, skipping file deletion:', publicUrl);
+        return;
+    }
+    
+    // URLデコードして正しいファイル名を取得
+    const filePath = decodeURIComponent(urlParts[1]);
+
+    const { error } = await client.storage
+        .from(bucketName)
+        .remove([filePath]);
+
+    if (error) {
+        console.error('Supabase File Deletion Error:', error);
+        throw new Error(`ファイル削除失敗: ${error.message}`);
+    }
+};

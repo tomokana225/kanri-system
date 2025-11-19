@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message } from '../types';
-import { getChatId, sendChatMessage, getChatMessages, markMessagesAsRead } from '../services/firebase';
+import { getChatId, sendChatMessage, getChatMessages, markMessagesAsRead, deleteChatMessage } from '../services/firebase';
 import { uploadFileToSupabase } from '../services/supabase';
 import Modal from './Modal';
 import Spinner from './Spinner';
-import { PaperclipIcon, CheckIcon } from './icons';
+import { PaperclipIcon, CheckIcon, DeleteIcon } from './icons';
 import firebase from 'firebase/compat/app';
 
 interface ChatModalProps {
@@ -137,6 +137,19 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     }
   };
 
+  const handleDeleteMessage = async (message: Message) => {
+      if (!window.confirm('このメッセージを削除しますか？（相手の画面からも削除されます）')) {
+          return;
+      }
+
+      try {
+          await deleteChatMessage(chatId, message);
+      } catch (err: any) {
+          console.error('Failed to delete message:', err);
+          alert('メッセージの削除に失敗しました。');
+      }
+  };
+
   return (
     <Modal title={`${otherUser.name}とのチャット`} onClose={onClose}>
       <div className="flex flex-col h-[60vh] relative">
@@ -166,12 +179,21 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
             const isRead = msg.readBy?.includes(otherUser.id!);
 
             return (
-                <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} group`}>
                     {isMe && (
-                        <div className="text-xs text-gray-500 mb-1">
-                            {isRead && <CheckIcon className="w-4 h-4 text-blue-500" />}
-                            <span>{msg.createdAt.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
+                        <>
+                            <button
+                                onClick={() => handleDeleteMessage(msg)}
+                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity p-1"
+                                title="削除"
+                            >
+                                <DeleteIcon className="w-4 h-4" />
+                            </button>
+                            <div className="text-xs text-gray-500 mb-1 flex flex-col items-end">
+                                <span>{msg.createdAt.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
+                                {isRead && <CheckIcon className="w-3 h-3 text-blue-500 mt-0.5" />}
+                            </div>
+                        </>
                     )}
                     <div className={`max-w-xs lg:max-w-md p-1 rounded-lg shadow ${isMe ? 'bg-blue-500 text-white' : 'bg-white text-gray-800'}`}>
                         {msg.type === 'image' && msg.imageUrl ? (

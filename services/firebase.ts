@@ -7,6 +7,7 @@ import 'firebase/compat/storage';
 import 'firebase/compat/messaging';
 
 import { AppConfig, getConfig } from './config';
+import { deleteFileFromSupabase } from './supabase'; // Import deletion helper
 import type { User, Course, Booking, Availability, Notification, Message } from '../types';
 
 let firebaseApp: firebase.app.App;
@@ -589,6 +590,30 @@ export const uploadImageToStorage = async (file: File, chatId: string): Promise<
     await fileRef.put(file);
     return await fileRef.getDownloadURL();
 };
+
+export const deleteChatMessage = async (chatId: string, message: Message): Promise<void> => {
+    await initializeFirebase();
+    
+    // 1. If the message has an image or file, delete it from Supabase first
+    if (message.imageUrl) {
+        try {
+            await deleteFileFromSupabase(message.imageUrl);
+        } catch (error) {
+            console.error("Failed to delete image from storage:", error);
+            // We continue to delete the message doc even if storage deletion fails
+        }
+    } else if (message.fileUrl) {
+         try {
+            await deleteFileFromSupabase(message.fileUrl);
+        } catch (error) {
+            console.error("Failed to delete file from storage:", error);
+        }
+    }
+
+    // 2. Delete the message document from Firestore
+    await db.collection('chats').doc(chatId).collection('messages').doc(message.id).delete();
+};
+
 
 export const markMessagesAsRead = async (chatId: string, messageIds: string[], userId: string): Promise<void> => {
     await initializeFirebase();
