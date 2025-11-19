@@ -4,7 +4,6 @@ import { getAvailabilitiesForTeacher, createBooking } from '../services/firebase
 import Spinner from './Spinner';
 import Alert from './Alert';
 import Calendar from './Calendar';
-// Fix: Import the Modal component to be used as a wrapper. The CloseIcon is used within Modal.
 import Modal from './Modal';
 
 interface BookingModalProps {
@@ -16,6 +15,14 @@ interface BookingModalProps {
 
 type BookingStep = 'course' | 'date' | 'time' | 'confirm' | 'success';
 
+// Reminder options in minutes
+const REMINDER_OPTIONS = [
+    { label: '1日前 (24時間前)', value: 1440 },
+    { label: '3時間前', value: 180 },
+    { label: '1時間前', value: 60 },
+    { label: '30分前', value: 30 },
+];
+
 const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onBookingSuccess }) => {
   const [step, setStep] = useState<BookingStep>('course');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -24,6 +31,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedAvailability, setSelectedAvailability] = useState<Availability | null>(null);
+  const [selectedReminders, setSelectedReminders] = useState<number[]>([1440]); // Default to 1 day before
 
   useEffect(() => {
     const fetchAvailabilities = async () => {
@@ -80,6 +88,14 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
     setSelectedAvailability(availability);
     setStep('confirm');
   };
+
+  const toggleReminder = (value: number) => {
+      setSelectedReminders(prev => 
+          prev.includes(value) 
+            ? prev.filter(v => v !== value)
+            : [...prev, value]
+      );
+  };
   
   const handleConfirmBooking = async () => {
     if (!selectedCourse || !selectedAvailability) return;
@@ -95,6 +111,10 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
             startTime: selectedAvailability.startTime,
             endTime: selectedAvailability.endTime,
             status: 'confirmed',
+            reminderSettings: {
+                offsets: selectedReminders,
+                sentOffsets: []
+            }
         };
         await createBooking(newBooking, selectedAvailability.id);
         setStep('success');
@@ -168,11 +188,31 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
         return (
           <div>
             <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">4. 予約内容の確認</h3>
-            <div className="p-4 bg-gray-50 rounded-md space-y-1">
+            
+            <div className="p-4 bg-gray-50 rounded-md space-y-2 mb-4">
               <p><strong>コース:</strong> {selectedCourse?.title}</p>
               <p><strong>教師:</strong> {selectedCourse?.teacherName}</p>
               <p><strong>日時:</strong> {selectedAvailability?.startTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
+
+            <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">リマインダー設定</h4>
+                <p className="text-xs text-gray-500 mb-2">授業開始前に通知を受け取るタイミングを選択してください。</p>
+                <div className="grid grid-cols-2 gap-2">
+                    {REMINDER_OPTIONS.map(option => (
+                        <label key={option.value} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
+                            <input 
+                                type="checkbox" 
+                                checked={selectedReminders.includes(option.value)}
+                                onChange={() => toggleReminder(option.value)}
+                                className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                            />
+                            <span className="text-sm">{option.label}</span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+
             {loading && <div className="flex justify-center mt-4"><Spinner /></div>}
             {error && <Alert message={error} type="error" />}
             <div className="flex justify-between items-center mt-6">
@@ -188,7 +228,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
           <div className="text-center py-4">
             <h3 className="text-lg font-medium text-green-700">予約が完了しました！</h3>
             <p className="mt-2 text-gray-600">ご予約ありがとうございます。詳細はマイポータルでご確認ください。</p>
-            {/* Fix: Complete the button that was cut off in the provided file content. */}
             <button onClick={() => { onBookingSuccess(); onClose(); }} className="mt-6 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
                 閉じる
             </button>
@@ -199,7 +238,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
     }
   };
 
-  // Fix: Add a return statement to the component to render JSX, resolving the type error.
   return (
     <Modal title="クラスを予約" onClose={onClose}>
       {renderStep()}
@@ -207,5 +245,4 @@ const BookingModal: React.FC<BookingModalProps> = ({ user, courses, onClose, onB
   );
 };
 
-// Fix: Add a default export to resolve the import error in StudentPortal.tsx.
 export default BookingModal;

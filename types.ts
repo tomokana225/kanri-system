@@ -44,7 +44,16 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   cancellationDeadline?: Timestamp;
   cancellationReason?: string; // Reason for cancellation
-  reminderSent?: boolean;
+  
+  // Legacy field for backward compatibility
+  reminderSent?: boolean; 
+  
+  // New flexible reminder settings
+  reminderSettings?: {
+    offsets: number[]; // minutes before start (e.g., 1440 for 1 day)
+    sentOffsets: number[]; // offsets that have already been triggered
+  };
+
   feedback?: {
     rating: number;
     comment: string;

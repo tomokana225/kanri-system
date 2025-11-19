@@ -1,21 +1,9 @@
 // functions/api/cron-handler.ts
 /**
  * This is a Cloudflare Pages Function designed to be triggered by a cron job.
- * Its purpose is to check for upcoming bookings and send reminder notifications.
- * 
- * SETUP:
- * 1. In your Cloudflare Pages project settings, go to "Functions".
- * 2. Under "Cron Triggers", add a new trigger.
- * 3. Set the schedule (e.g., `0 * * * *` to run every hour).
- * 4. The URL to trigger will be `https://your-project.pages.dev/api/cron-handler`
- * 
- * This function requires the same Firebase environment variables as the main application.
- * Note: For production, using the Firebase Admin SDK in a dedicated backend environment
- * is recommended for security and to bypass client-side security rules. This example
- * uses the client-side SDK for simplicity and compatibility with the existing setup.
+ * It checks for upcoming bookings and sends reminder notifications based on user settings.
  */
 
-// Fix: Use Firebase compat imports to resolve module resolution errors.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { Booking } from '../../types';
@@ -58,62 +46,119 @@ export const onRequest: (context: { env: Env }) => Promise<Response> = async ({ 
         initializeFirebaseInWorker(env);
 
         const now = firebase.firestore.Timestamp.now();
-        const twentyFourHoursFromNow = new firebase.firestore.Timestamp(now.seconds + 24 * 60 * 60, now.nanoseconds);
+        const nowMillis = now.toMillis();
+        
+        // Look ahead 25 hours to catch "1 day before" reminders plus a buffer
+        // This allows us to fetch relevant bookings and process their offsets in memory
+        const twentyFiveHoursFromNow = new firebase.firestore.Timestamp(now.seconds + 25 * 60 * 60, now.nanoseconds);
 
         const bookingsRef = db.collection('bookings');
         const q = bookingsRef
             .where('status', '==', 'confirmed')
-            .where('reminderSent', '==', false)
             .where('startTime', '>=', now)
-            .where('startTime', '<=', twentyFourHoursFromNow);
+            .where('startTime', '<=', twentyFiveHoursFromNow);
 
         const querySnapshot = await q.get();
-        const bookingsToRemind = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
+        const bookings = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
 
-        if (bookingsToRemind.length === 0) {
-            return new Response(JSON.stringify({ success: true, message: "No upcoming bookings to remind." }), {
+        if (bookings.length === 0) {
+            return new Response(JSON.stringify({ success: true, message: "No upcoming bookings to check." }), {
                 headers: { 'Content-Type': 'application/json' },
             });
         }
         
         const batch = db.batch();
         let notificationCount = 0;
+        let bookingsUpdatedCount = 0;
 
-        for (const booking of bookingsToRemind) {
-            const startTime = booking.startTime.toDate().toLocaleString('ja-JP');
-            const studentMessage = `リマインダー: ${booking.courseTitle} の授業が ${startTime} に始まります。`;
-            const teacherMessage = `リマインダー: ${booking.studentName}さんとの ${booking.courseTitle} の授業が ${startTime} に始まります。`;
+        for (const booking of bookings) {
+            const startMillis = booking.startTime.toMillis();
+            const minutesUntilStart = (startMillis - nowMillis) / (1000 * 60);
             
-            // Notification for student
-            const studentNotifRef = db.collection('notifications').doc();
-            batch.set(studentNotifRef, {
-                userId: booking.studentId,
-                message: studentMessage,
-                read: false,
-                createdAt: firebase.firestore.Timestamp.now(),
-                link: { type: 'booking' }
-            });
+            let shouldUpdate = false;
+            let offsetsToSend: number[] = [];
 
-            // Notification for teacher
-            const teacherNotifRef = db.collection('notifications').doc();
-            batch.set(teacherNotifRef, {
-                userId: booking.teacherId,
-                message: teacherMessage,
-                read: false,
-                createdAt: firebase.firestore.Timestamp.now(),
-                link: { type: 'booking' }
-            });
+            // Check Legacy Logic (if no settings present)
+            if (!booking.reminderSettings) {
+                // Default legacy behavior: send if ~24h before and not sent yet
+                const isWithin24h = minutesUntilStart <= 1440;
+                if (isWithin24h && !booking.reminderSent) {
+                    offsetsToSend.push(1440); // Treat as 24h reminder
+                }
+            } else {
+                // New Logic with flexible settings
+                const settings = booking.reminderSettings;
+                const sentOffsets = settings.sentOffsets || [];
+                
+                for (const offset of settings.offsets) {
+                    // Trigger if we are passed the offset time (e.g. 60 mins before start)
+                    // and we haven't sent it yet.
+                    if (minutesUntilStart <= offset && !sentOffsets.includes(offset)) {
+                        offsetsToSend.push(offset);
+                    }
+                }
+            }
 
-            // Mark booking as reminder sent
-            const bookingRef = db.collection('bookings').doc(booking.id);
-            batch.update(bookingRef, { reminderSent: true });
+            if (offsetsToSend.length > 0) {
+                const startTimeStr = booking.startTime.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                
+                // Send notifications
+                const studentMessage = `リマインダー: ${booking.courseTitle} の授業がまもなく始まります (${startTimeStr})。`;
+                const teacherMessage = `リマインダー: ${booking.studentName}さんとの ${booking.courseTitle} の授業がまもなく始まります (${startTimeStr})。`;
+                
+                // Notification for student
+                const studentNotifRef = db.collection('notifications').doc();
+                batch.set(studentNotifRef, {
+                    userId: booking.studentId,
+                    message: studentMessage,
+                    read: false,
+                    createdAt: firebase.firestore.Timestamp.now(),
+                    link: { type: 'booking' }
+                });
 
-            notificationCount += 2;
+                // Notification for teacher
+                const teacherNotifRef = db.collection('notifications').doc();
+                batch.set(teacherNotifRef, {
+                    userId: booking.teacherId,
+                    message: teacherMessage,
+                    read: false,
+                    createdAt: firebase.firestore.Timestamp.now(),
+                    link: { type: 'booking' }
+                });
+                
+                notificationCount += 2;
+                shouldUpdate = true;
+
+                // Prepare update data
+                const bookingDocRef = db.collection('bookings').doc(booking.id);
+                if (!booking.reminderSettings) {
+                    // Legacy update
+                    batch.update(bookingDocRef, { reminderSent: true });
+                } else {
+                    // New update
+                    const updatedSentOffsets = [...(booking.reminderSettings.sentOffsets || []), ...offsetsToSend];
+                    // Remove duplicates just in case
+                    const uniqueSentOffsets = [...new Set(updatedSentOffsets)];
+                    
+                    batch.update(bookingDocRef, {
+                        'reminderSettings.sentOffsets': uniqueSentOffsets
+                    });
+                }
+            }
+            
+            if (shouldUpdate) bookingsUpdatedCount++;
         }
 
-        await batch.commit();
+        if (notificationCount > 0) {
+            await batch.commit();
+        }
 
-        return new Response(JSON.stringify({ success: true, notificationsSent: notificationCount, bookingsUpdated: bookingsToRemind.length }), {
+        return new Response(JSON.stringify({ 
+            success: true, 
+            notificationsSent: notificationCount, 
+            bookingsChecked: bookings.length,
+            bookingsUpdated: bookingsUpdatedCount 
+        }), {
             headers: { 'Content-Type': 'application/json' },
         });
 
