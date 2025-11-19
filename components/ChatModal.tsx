@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Message } from '../types';
 import { getChatId, sendChatMessage, getChatMessages, markMessagesAsRead } from '../services/firebase';
+import { uploadFileToSupabase } from '../services/supabase';
 import Modal from './Modal';
 import Spinner from './Spinner';
 import { PaperclipIcon, CheckIcon } from './icons';
@@ -15,10 +16,10 @@ interface ChatModalProps {
 const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [inputMode, setInputMode] = useState<'text' | 'url'>('text');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const chatId = getChatId(currentUser.id, otherUser.id!);
 
@@ -83,32 +84,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     const content = newMessage.trim();
     setNewMessage(''); // Clear input
     
-    let messageData: Partial<Message>;
-
-    if (inputMode === 'url') {
-        // Check if the URL looks like an image
-        const isImage = /\.(jpeg|jpg|gif|png|webp|bmp|svg)(\?.*)?$/i.test(content);
-        if (isImage) {
-            messageData = {
-                type: 'image',
-                imageUrl: content
-            };
-        } else {
-            messageData = {
-                type: 'file',
-                fileUrl: content
-            };
-        }
-        setInputMode('text'); // Reset to text mode after sending URL
-    } else {
-        messageData = {
-            type: 'text',
-            text: content,
-        };
-    }
-    
     try {
-        await sendChatMessage(chatId, messageData, currentUser, otherUser);
+        await sendChatMessage(chatId, { type: 'text', text: content }, currentUser, otherUser);
     } catch (err) {
         console.error(err);
         setError('メッセージの送信に失敗しました。');
@@ -116,8 +93,36 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
     }
   };
 
-  const toggleInputMode = () => {
-      setInputMode(prev => prev === 'text' ? 'url' : 'text');
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    
+    // Optional: Check file size (e.g., max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('ファイルサイズが大きすぎます（最大10MB）。');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+    }
+
+    setLoading(true); // Show loading while uploading
+    try {
+        const publicUrl = await uploadFileToSupabase(file);
+        
+        const isImage = file.type.startsWith('image/');
+        const messageData: Partial<Message> = isImage 
+            ? { type: 'image', imageUrl: publicUrl }
+            : { type: 'file', fileUrl: publicUrl };
+
+        await sendChatMessage(chatId, messageData, currentUser, otherUser);
+    } catch (err: any) {
+        console.error('File upload error:', err);
+        setError(`ファイルの送信に失敗しました: ${err.message}`);
+    } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+    }
   };
 
   return (
@@ -151,7 +156,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
                         ) : msg.type === 'file' && msg.fileUrl ? (
                              <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 p-2 underline ${isMe ? 'text-white' : 'text-blue-600'}`}>
                                 <PaperclipIcon className="w-4 h-4" />
-                                <span className="truncate max-w-[200px]">{msg.fileUrl}</span>
+                                <span className="truncate max-w-[200px]">{msg.fileUrl.split('/').pop()}</span>
                              </a>
                         ) : (
                             <p className="px-3 py-1 break-words whitespace-pre-wrap">{msg.text}</p>
@@ -165,19 +170,26 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
           <div ref={messagesEndRef} />
         </div>
         <form onSubmit={handleSendMessage} className="flex gap-2 items-center p-1">
+          <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              onChange={handleFileSelect} 
+          />
           <button 
             type="button" 
-            onClick={toggleInputMode} 
-            className={`p-2 rounded-full transition-colors ${inputMode === 'url' ? 'bg-blue-100 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'}`}
-            title={inputMode === 'url' ? "テキスト入力に戻る" : "ファイル/画像のURLを送信"}
+            onClick={() => fileInputRef.current?.click()} 
+            className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+            title="ファイルまたは画像を送信"
+            disabled={loading}
           >
             <PaperclipIcon />
           </button>
           <input
-            type={inputMode === 'url' ? 'url' : 'text'}
+            type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={inputMode === 'url' ? "https://... (画像やファイルのURL)" : "メッセージを入力..."}
+            placeholder="メッセージを入力..."
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             aria-label="New message"
             disabled={loading || !!error}

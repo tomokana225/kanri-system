@@ -9,6 +9,10 @@ export interface AppConfig {
         measurementId: string;
     };
     vapidKey: string;
+    supabase?: {
+        url: string;
+        anonKey: string;
+    };
 }
 
 let configPromise: Promise<AppConfig> | null = null;
@@ -49,7 +53,11 @@ export const getConfig = (): Promise<AppConfig> => {
                     appId: "1:1234567890:web:mock123456",
                     measurementId: "G-MOCK12345"
                 },
-                vapidKey: "MOCK_VAPID_KEY_REPLACE_WITH_REAL_ONE_FOR_TESTING"
+                vapidKey: "MOCK_VAPID_KEY_REPLACE_WITH_REAL_ONE_FOR_TESTING",
+                supabase: {
+                    url: "https://mock-supabase.supabase.co",
+                    anonKey: "mock-supabase-anon-key"
+                }
             };
         }
     })();

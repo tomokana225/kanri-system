@@ -12,7 +12,8 @@
   "dependencies": {
     "firebase": "^12.5.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240512.0",

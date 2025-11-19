@@ -8,6 +8,8 @@ interface Env {
   FIREBASE_APP_ID: string;
   FIREBASE_MEASUREMENT_ID: string;
   VAPID_KEY: string;
+  SUPABASE_URL?: string;
+  SUPABASE_ANON_KEY?: string;
 }
 
 interface PagesFunctionContext {
@@ -53,6 +55,10 @@ export const onRequest: (context: PagesFunctionContext) => Response | Promise<Re
             measurementId: env.FIREBASE_MEASUREMENT_ID,
         },
         vapidKey: env.VAPID_KEY,
+        supabase: {
+            url: env.SUPABASE_URL,
+            anonKey: env.SUPABASE_ANON_KEY
+        }
     };
 
     return new Response(JSON.stringify(config), {
