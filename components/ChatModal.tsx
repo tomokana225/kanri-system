@@ -13,11 +13,19 @@ interface ChatModalProps {
   onClose: () => void;
 }
 
+interface UploadStatus {
+    isUploading: boolean;
+    message: string;
+    progress: number;
+}
+
 const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>({ isUploading: false, message: '', progress: 0 });
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,9 +114,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
         return;
     }
 
-    setLoading(true); // Show loading while uploading
+    setUploadStatus({ isUploading: true, message: '準備中...', progress: 0 });
+
     try {
-        const publicUrl = await uploadFileToSupabase(file);
+        const publicUrl = await uploadFileToSupabase(file, (status, progress) => {
+            setUploadStatus({ isUploading: true, message: status, progress });
+        });
         
         // Determine type based on the original file type, but check result
         const isImage = file.type.startsWith('image/');
@@ -121,14 +132,27 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
         console.error('File upload error:', err);
         setError(`ファイルの送信に失敗しました: ${err.message}`);
     } finally {
-        setLoading(false);
+        setUploadStatus({ isUploading: false, message: '', progress: 0 });
         if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
     }
   };
 
   return (
     <Modal title={`${otherUser.name}とのチャット`} onClose={onClose}>
-      <div className="flex flex-col h-[60vh]">
+      <div className="flex flex-col h-[60vh] relative">
+        {uploadStatus.isUploading && (
+            <div className="absolute inset-0 bg-white bg-opacity-90 z-10 flex flex-col items-center justify-center p-4 rounded-lg">
+                <Spinner />
+                <p className="mt-4 font-semibold text-gray-700 animate-pulse">{uploadStatus.message}</p>
+                <div className="w-full max-w-xs bg-gray-200 rounded-full h-2.5 mt-3">
+                    <div 
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                        style={{ width: `${uploadStatus.progress}%` }}
+                    ></div>
+                </div>
+            </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 rounded-md mb-4 space-y-2">
           {loading && <div className="flex justify-center items-center h-full"><Spinner /></div>}
           {error && <p className="text-red-500 text-center">{error}</p>}
@@ -182,7 +206,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
             onClick={() => fileInputRef.current?.click()} 
             className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-gray-100 transition-colors"
             title="ファイルまたは画像を送信"
-            disabled={loading}
+            disabled={loading || uploadStatus.isUploading}
           >
             <PaperclipIcon />
           </button>
@@ -193,12 +217,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ currentUser, otherUser, onClose }
             placeholder="メッセージを入力..."
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             aria-label="New message"
-            disabled={loading || !!error}
+            disabled={loading || !!error || uploadStatus.isUploading}
           />
           <button
             type="submit"
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={loading || !!error || newMessage.trim() === ''}
+            disabled={loading || !!error || newMessage.trim() === '' || uploadStatus.isUploading}
           >
             送信
           </button>

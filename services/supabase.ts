@@ -97,16 +97,30 @@ const compressImage = async (file: File): Promise<File> => {
     });
 };
 
-export const uploadFileToSupabase = async (file: File): Promise<string> => {
+export const uploadFileToSupabase = async (
+  file: File, 
+  onStatusChange?: (status: string, progress: number) => void
+): Promise<string> => {
     const client = await getSupabase();
     
+    if (onStatusChange) onStatusChange('準備中...', 5);
+
     // 画像の場合は圧縮処理を試みる
     let fileToUpload = file;
-    try {
-        fileToUpload = await compressImage(file);
-    } catch (e) {
-        console.error("Compression logic failed unexpectedly", e);
+    if (file.type.startsWith('image/')) {
+        if (onStatusChange) {
+            onStatusChange('画像の圧縮中...', 15);
+            // UI描画のために少し待つ
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        try {
+            fileToUpload = await compressImage(file);
+        } catch (e) {
+            console.error("Compression logic failed unexpectedly", e);
+        }
     }
+
+    if (onStatusChange) onStatusChange('サーバーへアップロード中...', 40);
 
     // ファイル名のサニタイズ（日本語ファイル名などのトラブル防止）
     const timestamp = Date.now();
@@ -116,7 +130,7 @@ export const uploadFileToSupabase = async (file: File): Promise<string> => {
     const bucketName = 'chat-files';
 
     // ファイルをアップロード
-    const { data, error } = await client.storage
+    const { error } = await client.storage
         .from(bucketName)
         .upload(filePath, fileToUpload, {
             cacheControl: '3600',
@@ -127,11 +141,15 @@ export const uploadFileToSupabase = async (file: File): Promise<string> => {
         console.error('Supabase Upload Error:', error);
         throw new Error(`アップロード失敗: ${error.message}`);
     }
+    
+    if (onStatusChange) onStatusChange('完了処理中...', 90);
 
     // 公開URLを取得（バケットがPublic設定である必要があります）
     const { data: { publicUrl } } = client.storage
         .from(bucketName)
         .getPublicUrl(filePath);
+
+    if (onStatusChange) onStatusChange('完了', 100);
 
     return publicUrl;
 };
