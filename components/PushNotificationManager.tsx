@@ -4,23 +4,25 @@ import { initializeMessagingListener } from '../services/firebase';
 
 interface PushNotificationManagerProps {
   user: User | null;
+  onShowToast: (message: string) => void;
 }
 
-const PushNotificationManager: React.FC<PushNotificationManagerProps> = ({ user }) => {
+const PushNotificationManager: React.FC<PushNotificationManagerProps> = ({ user, onShowToast }) => {
   useEffect(() => {
     if (user) {
-      // In a real app, you might use a more sophisticated UI element like a toast or snackbar.
       const unsubscribe = initializeMessagingListener((payload) => {
         const notificationTitle = payload.notification?.title || '新しい通知';
-        const notificationBody = payload.notification?.body || '新しいメッセージがあります。';
-        alert(`${notificationTitle}\n\n${notificationBody}`);
+        const notificationBody = payload.notification?.body || '';
+        
+        // Display a toast instead of an alert for better UX
+        onShowToast(`${notificationTitle}${notificationBody ? `: ${notificationBody}` : ''}`);
       });
 
       return () => {
         unsubscribe();
       };
     }
-  }, [user]);
+  }, [user, onShowToast]);
 
   return null;
 };

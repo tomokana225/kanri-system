@@ -350,11 +350,11 @@ interface PushNotificationApiResponse {
   };
 }
 
-export const sendTestNotification = async (userId: string, senderName: string): Promise<void> => {
+export const sendTestNotification = async (userId: string, senderName: string, customMessage?: string): Promise<void> => {
     await initializeFirebase();
 
     const title = 'テスト通知';
-    const body = `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`;
+    const body = customMessage || `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`;
 
     // 1. アプリ内UIに表示するための通知をFirestoreに作成します
     const notificationForDb = {

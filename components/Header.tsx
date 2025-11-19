@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { User, Notification } from '../types';
 import { BellIcon, LogoutIcon, MenuIcon, BellPlusIcon, BellCheckIcon, BellSlashIcon, ShareIcon, PlusSquareIcon, CloseIcon } from './icons';
 import NotificationPanel from './NotificationPanel';
-import Toast from './Toast'; // New
 import { subscribeToUserNotifications, markAllNotificationsAsRead, requestNotificationPermissionAndSaveToken } from '../services/firebase';
 // Fix: Import firebase to use firebase.firestore.Timestamp for mock data.
 import firebase from 'firebase/compat/app';
@@ -13,6 +12,7 @@ interface HeaderProps {
   onLogout: () => void;
   onToggleSidebar: () => void;
   onNavigate: (link: Notification['link']) => void;
+  onShowToast: (message: string) => void;
 }
 
 const IosInstallPrompt: React.FC<{onClose: () => void}> = ({ onClose }) => (
@@ -31,7 +31,7 @@ const IosInstallPrompt: React.FC<{onClose: () => void}> = ({ onClose }) => (
 );
 
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavigate }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavigate, onShowToast }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
@@ -39,8 +39,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
   );
   const [showIosPrompt, setShowIosPrompt] = useState(false);
   
-  // New state and ref for toast notifications
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const previousNotifications = useRef<Notification[]>([]);
   
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -78,7 +76,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
             .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())[0]; // Get the most recent one
 
         if (newestUnread) {
-            setToastMessage(newestUnread.message);
+            onShowToast(newestUnread.message);
+            
             // If permission is granted, show a system notification
             if (window.Notification && Notification.permission === 'granted') {
                 const notificationTitle = "新しい通知";
@@ -95,7 +94,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
       previousNotifications.current = newNotifications; // Update the ref for the next comparison
     });
     return () => unsubscribe();
-  }, [user.id]);
+  }, [user.id, onShowToast]);
 
   const handleToggleNotifications = () => {
     setShowNotifications(prev => !prev);
@@ -190,10 +189,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
         </div>
       </header>
       {showIosPrompt && <IosInstallPrompt onClose={handleCloseIosPrompt} />}
-      {/* Render the Toast component when there's a message */}
-      {toastMessage && (
-        <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
-      )}
     </>
   );
 };

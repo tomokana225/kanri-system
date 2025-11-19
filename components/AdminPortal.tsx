@@ -197,9 +197,12 @@ const AdminPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSidebarO
         setError('テスト通知の送信先ユーザー情報が不完全です。');
         return;
     }
-    if (window.confirm(`${targetUser.name}さんにテスト通知を送信しますか？`)) {
+    // Allow admin to enter a custom message
+    const customMessage = window.prompt(`${targetUser.name}さんに送信するメッセージを入力してください:`, `${user.name}からのテスト通知です。`);
+    
+    if (customMessage !== null) { // If not cancelled
         try {
-            await sendTestNotification(targetUser.id, user.name);
+            await sendTestNotification(targetUser.id, user.name, customMessage);
             alert('テスト通知を送信しました。対象ユーザーのデバイスで通知が表示されるか確認してください。');
         } catch (err: any) {
             setError(`テスト通知の送信に失敗しました: ${err.message}`);

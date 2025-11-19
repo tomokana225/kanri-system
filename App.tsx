@@ -12,6 +12,7 @@ import PushNotificationManager from './components/PushNotificationManager';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import { ChevronDownIcon } from './components/icons';
+import Toast from './components/Toast';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [navigationRequest, setNavigationRequest] = useState<Notification['link'] | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleDevModeLogin = (role: UserRole) => {
     console.warn(`[開発モード] ${role}としてログインしています。表示されているデータはモックです。`);
@@ -168,18 +170,22 @@ const App: React.FC = () => {
     <div className="h-full bg-gray-100 flex flex-col">
       {user ? (
         <>
-          <PushNotificationManager user={user} />
+          <PushNotificationManager user={user} onShowToast={setToastMessage} />
           <Header
             user={user}
             onLogout={handleLogout}
             onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
             onNavigate={handleNavigationRequest}
+            onShowToast={setToastMessage}
           />
           <div className="flex-1 flex overflow-hidden">
             {user.role === 'student' && <StudentPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} navigationRequest={navigationRequest} onNavigationComplete={handleNavigationComplete} />}
             {user.role === 'teacher' && <TeacherPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} navigationRequest={navigationRequest} onNavigationComplete={handleNavigationComplete} />}
             {user.role === 'admin' && <AdminPortal user={user} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} navigationRequest={navigationRequest} onNavigationComplete={handleNavigationComplete} />}
           </div>
+          {toastMessage && (
+            <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+          )}
         </>
       ) : (
         <Login />
