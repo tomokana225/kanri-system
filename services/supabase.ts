@@ -26,7 +26,7 @@ export const uploadFileToSupabase = async (file: File): Promise<string> => {
     const bucketName = 'chat-files';
 
     // Upload file
-    const { data, error } = await client.storage
+    const { error } = await client.storage
         .from(bucketName)
         .upload(filePath, file, {
             cacheControl: '3600',
