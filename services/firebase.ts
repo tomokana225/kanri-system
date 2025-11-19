@@ -225,9 +225,47 @@ export const getAllBookings = async (): Promise<Booking[]> => {
     return snapshot.docs.map(doc => docToObject<Booking>(doc));
 };
 
+// Low-level update
 export const updateBookingStatus = async (bookingId: string, status: Booking['status']): Promise<void> => {
     await initializeFirebase();
     await db.collection('bookings').doc(bookingId).update({ status });
+};
+
+// High-level cancellation with notification
+export const cancelBooking = async (bookingId: string, cancelledByUserId: string, cancelledByUserName: string): Promise<void> => {
+    await initializeFirebase();
+    
+    // 1. Get booking details to identify the partner
+    const bookingRef = db.collection('bookings').doc(bookingId);
+    const bookingDoc = await bookingRef.get();
+    
+    if (!bookingDoc.exists) {
+        throw new Error("予約が見つかりません。");
+    }
+    
+    const booking = docToObject<Booking>(bookingDoc);
+    
+    // 2. Update status
+    await bookingRef.update({ status: 'cancelled' });
+    
+    // 3. Send notification to the partner
+    let targetUserId = '';
+    
+    if (booking.studentId === cancelledByUserId) {
+        targetUserId = booking.teacherId;
+    } else if (booking.teacherId === cancelledByUserId) {
+        targetUserId = booking.studentId;
+    }
+    
+    if (targetUserId) {
+        const startTimeStr = booking.startTime.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        await sendAppAndPushNotification(
+            targetUserId,
+            "予約キャンセル",
+            `${cancelledByUserName}さんが予約をキャンセルしました: ${booking.courseTitle} (${startTimeStr})`,
+            { type: 'booking' }
+        );
+    }
 };
 
 export const createBooking = async (newBooking: Omit<Booking, 'id'>, availabilityId: string): Promise<void> => {
@@ -243,6 +281,15 @@ export const createBooking = async (newBooking: Omit<Booking, 'id'>, availabilit
         transaction.set(bookingRef, newBooking);
         transaction.update(availabilityRef, { status: 'booked', studentId: newBooking.studentId });
     });
+
+    // Notify the teacher
+    const startTimeStr = newBooking.startTime.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    await sendAppAndPushNotification(
+        newBooking.teacherId,
+        "新しい予約",
+        `${newBooking.studentName}さんから予約が入りました: ${newBooking.courseTitle} (${startTimeStr})`,
+        { type: 'booking' }
+    );
 };
 
 export const createManualBooking = async (newBooking: Omit<Booking, 'id'>): Promise<void> => {
@@ -252,9 +299,40 @@ export const createManualBooking = async (newBooking: Omit<Booking, 'id'>): Prom
 
 
 // Feedback Functions
+// Low-level submit
 export const submitFeedback = async (bookingId: string, feedback: { rating: number, comment: string }): Promise<void> => {
     await initializeFirebase();
     await db.collection('bookings').doc(bookingId).update({ feedback });
+};
+
+// High-level submit with notification
+export const submitFeedbackWithNotification = async (bookingId: string, feedback: { rating: number, comment: string }, submittedByUserId: string, submittedByUserName: string): Promise<void> => {
+    await initializeFirebase();
+    
+    const bookingRef = db.collection('bookings').doc(bookingId);
+    const bookingDoc = await bookingRef.get();
+    
+    if (!bookingDoc.exists) throw new Error("予約が見つかりません。");
+    const booking = docToObject<Booking>(bookingDoc);
+
+    await bookingRef.update({ feedback });
+
+    // Determine recipient (the other party)
+    let targetUserId = '';
+    if (booking.studentId === submittedByUserId) {
+        targetUserId = booking.teacherId;
+    } else if (booking.teacherId === submittedByUserId) {
+        targetUserId = booking.studentId;
+    }
+
+    if (targetUserId) {
+        await sendAppAndPushNotification(
+            targetUserId,
+            "フィードバック受信",
+            `${submittedByUserName}さんから${booking.courseTitle}のクラスに対するフィードバックが届きました。`,
+            { type: 'booking' } // Redirect to booking list to see feedback
+        );
+    }
 };
 
 // Notification & Messaging Functions
@@ -372,37 +450,41 @@ const callPushNotificationApi = async (userId: string, title: string, body: stri
     }
 };
 
+// Helper function to save in-app notification AND send push notification
+const sendAppAndPushNotification = async (userId: string, title: string, message: string, link?: Notification['link']) => {
+  await initializeFirebase();
+  
+  // 1. Create In-App Notification
+  const notificationData = {
+    userId: userId,
+    message: message,
+    read: false,
+    createdAt: firebase.firestore.Timestamp.now(),
+    link: link || null
+  };
+  
+  try {
+      await db.collection('notifications').add(notificationData);
+  } catch (e) {
+      console.error("Failed to create in-app notification:", e);
+  }
+
+  // 2. Send Push Notification
+  // We don't await this to avoid blocking UI if the API is slow
+  callPushNotificationApi(userId, title, message).catch(e => {
+      console.error("Failed to send push notification:", e);
+  });
+};
+
+
 export const sendTestNotification = async (userId: string, senderName: string, customMessage?: string): Promise<void> => {
     await initializeFirebase();
 
     const title = 'テスト通知';
     const body = customMessage || `これは${senderName}からのテスト通知です。現在時刻: ${new Date().toLocaleTimeString('ja-JP')}`;
 
-    // 1. アプリ内UIに表示するための通知をFirestoreに作成します
-    const notificationForDb = {
-        userId: userId,
-        message: body,
-        read: false,
-        createdAt: firebase.firestore.Timestamp.now(),
-        link: null
-    };
-    await db.collection('notifications').add(notificationForDb);
-
-    // 2. 実際のプッシュ通知を送信するためにバックエンド関数を呼び出します
-    const response = await callPushNotificationApi(userId, title, body);
-    
-    if (response && !response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'プッシュ通知APIの呼び出しに失敗しました');
-    } else if (response) {
-        const result = await response.json() as PushNotificationApiResponse;
-        if (!result.success) {
-             throw new Error(result.error || 'プッシュ通知の送信に失敗しました');
-        }
-        if (result.fcmResult && result.fcmResult.failure > 0 && result.fcmResult.success === 0) {
-             throw new Error('登録されたすべてのデバイスへの送信に失敗しました。トークンが無効になっている可能性があります。');
-        }
-    }
+    // Use the common helper
+    await sendAppAndPushNotification(userId, title, body, null);
 };
 
 
@@ -441,15 +523,23 @@ export const sendChatMessage = async (chatId: string, messageData: Partial<Messa
     batch.set(chatRef, { participants: [sender.id, receiver.id] }, { merge: true });
     await batch.commit();
 
-    // Send Push Notification to the receiver
+    // Send Notification to the receiver
     if (receiver.id) {
         const title = sender.name;
         const body = messageData.type === 'image' ? '画像を送信しました' : (messageData.text || '新しいメッセージ');
         
-        // We call the API but do not await its result or let it block the chat UI.
-        // Chat functionality should remain responsive even if notifications fail.
-        callPushNotificationApi(receiver.id, title, body).catch(err => {
-            console.error("Failed to trigger chat push notification:", err);
+        const link: Notification['link'] = {
+            type: 'chat',
+            payload: {
+                partnerId: sender.id,
+                partnerName: sender.name,
+                partnerRole: sender.role
+            }
+        };
+
+        // Use the helper to save to Firestore AND send push notification
+        sendAppAndPushNotification(receiver.id, title, body, link).catch(err => {
+            console.error("Failed to trigger chat notification:", err);
         });
     }
 };

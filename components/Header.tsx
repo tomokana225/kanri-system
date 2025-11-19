@@ -148,7 +148,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar, onNavi
 
   return (
     <>
-      <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+      <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm flex-shrink-0 relative z-20">
         <div className="flex items-center">
           <button onClick={onToggleSidebar} className="p-2 text-gray-500 rounded-md hover:bg-gray-100">
               <MenuIcon />

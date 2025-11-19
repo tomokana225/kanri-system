@@ -267,7 +267,7 @@ const TeacherPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
       </main>
       
       {isAvailabilityModalOpen && <TeacherAvailabilityModal user={user} onClose={() => setIsAvailabilityModalOpen(false)} onSaveSuccess={fetchData} />}
-      {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="teacher" onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData} />}
+      {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="teacher" currentUser={user} onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData} />}
       {isChatModalOpen && chatPartner && <ChatModal currentUser={user} otherUser={chatPartner} onClose={() => setIsChatModalOpen(false)} />}
     </div>
   );

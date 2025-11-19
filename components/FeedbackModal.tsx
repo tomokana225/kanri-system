@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Booking } from '../types';
+import { Booking, User } from '../types';
 import Modal from './Modal';
-import { submitFeedback } from '../services/firebase';
+import { submitFeedbackWithNotification } from '../services/firebase';
 import Alert from './Alert';
 
 interface FeedbackModalProps {
   booking: Booking;
   userRole: 'student' | 'teacher';
+  currentUser: User;
   onClose: () => void;
   onFeedbackSubmit: () => void;
 }
 
-const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClose, onFeedbackSubmit }) => {
+const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, currentUser, onClose, onFeedbackSubmit }) => {
   const [rating, setRating] = useState(booking.feedback?.rating || 0);
   const [comment, setComment] = useState(booking.feedback?.comment || '');
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,6 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClos
     e.preventDefault();
     if (isViewOnly) return;
     
-    // Fix: Add validation to ensure a rating is selected before submitting.
     if (rating === 0) {
       setError('評価を星で選択してください（1〜5）。');
       return;
@@ -32,11 +32,11 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClos
     setLoading(true);
     setError('');
     try {
-      await submitFeedback(booking.id, { rating, comment });
+      // Use notification version
+      await submitFeedbackWithNotification(booking.id, { rating, comment }, currentUser.id, currentUser.name);
       onFeedbackSubmit();
       onClose();
     } catch (err: any) {
-      // Fix: Improve error message to be more informative.
       const code = err.code ? ` (コード: ${err.code})` : '';
       setError(`フィードバックの送信に失敗しました。${code}`);
     } finally {
@@ -106,7 +106,6 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ booking, userRole, onClos
                 </button>
                 <button
                   type="submit"
-                  // Fix: Disable button if no rating is selected.
                   disabled={loading || rating === 0}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >

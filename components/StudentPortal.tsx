@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Course, Booking, Notification } from '../types';
-import { getCoursesForStudent, getBookingsForUser, updateBookingStatus } from '../services/firebase';
+import { getCoursesForStudent, getBookingsForUser, cancelBooking } from '../services/firebase';
 import Spinner from './Spinner';
 import Alert from './Alert';
 import BookingModal from './BookingModal';
@@ -100,7 +100,8 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
   const handleCancelBooking = async (bookingId: string) => {
     if (window.confirm('この予約を本当にキャンセルしますか？')) {
       try {
-        await updateBookingStatus(bookingId, 'cancelled');
+        // Use cancelBooking instead of updateBookingStatus to trigger notifications
+        await cancelBooking(bookingId, user.id, user.name);
         alert('予約がキャンセルされました。');
         fetchData(); // Refresh data
       } catch (e: any) {
@@ -283,7 +284,7 @@ const StudentPortal: React.FC<PortalProps> = ({ user, isSidebarOpen, setIsSideba
       </main>
 
       {isBookingModalOpen && <BookingModal user={user} courses={courses} onClose={() => setIsBookingModalOpen(false)} onBookingSuccess={fetchData} />}
-      {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="student" onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData}/>}
+      {isFeedbackModalOpen && selectedBooking && <FeedbackModal booking={selectedBooking} userRole="student" currentUser={user} onClose={() => setIsFeedbackModalOpen(false)} onFeedbackSubmit={fetchData}/>}
       {isChatModalOpen && chatPartner && <ChatModal currentUser={user} otherUser={chatPartner} onClose={() => setIsChatModalOpen(false)} />}
     </div>
   );
