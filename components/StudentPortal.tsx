@@ -9,7 +9,7 @@ import ChatModal from './ChatModal';
 import ChatList from './ChatList';
 import Sidebar from './Sidebar';
 import Calendar from './Calendar';
-import { ChatIcon, CalendarIcon, ClockIcon, AddIcon, CheckIcon } from './icons';
+import { ChatIcon, CalendarIcon, ClockIcon, AddIcon } from './icons';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 
